@@ -72,6 +72,33 @@ header.hero {
   text-transform: uppercase;
 }
 
+.hero .weather {
+  margin: 1rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  min-height: 1.5em;
+}
+
+.hero .weather.weather--error {
+  color: var(--danger);
+  font-size: 0.88rem;
+}
+
+footer .footer-weather-credit {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+footer .footer-weather-credit a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+footer .footer-weather-credit a:hover {
+  text-decoration: underline;
+}
+
 h2.section-title {
   font-family: "Cormorant Garamond", Georgia, serif;
   font-size: 1.5rem;

@@ -58,9 +58,9 @@
   if (greetingEl && clockEl) {
     function updateGreeting() {
       const h = new Date().getHours();
-      let msg = "Good evening, sir.";
-      if (h < 12) msg = "Good morning, sir.";
-      else if (h < 17) msg = "Good afternoon, sir.";
+      let msg = "Good evening, Eesa";
+      if (h < 12) msg = "Good morning, Eesa";
+      else if (h < 17) msg = "Good afternoon, Eesa.";
       greetingEl.textContent = msg;
     }
 

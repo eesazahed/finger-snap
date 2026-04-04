@@ -1,6 +1,6 @@
 # finger-snap
 
-macOS microphone listener that detects **exactly two finger snaps** (a third snap cancels the gesture), then plays a startup sound, optionally opens **Google Chrome** to a URL, and shows a notification. Includes a small dashboard (`index.html` + `assets/`) and shell helpers to run under `launchd`.
+macOS microphone listener that detects **exactly two finger snaps** (a third snap cancels the gesture), then plays a startup sound, optionally opens your **default browser** (or a chosen app) to the dashboard URL, and shows a notification. Includes a small dashboard (`index.html` + `assets/`) and shell helpers to run under `launchd`.
 
 ## Repository layout
 
@@ -53,7 +53,9 @@ Default startup sound: **`assets/audio/startupsong.wav`**. Override with `--star
 
 **Hand-in-frame test (webcam → stdout echo):** after the venv setup above, run `./.venv/bin/pip install mediapipe opencv-python-headless` (never plain `pip install` on Homebrew Python—it errors with **externally-managed-environment** / PEP 668). Default: **headless** (no camera window)—`./.venv/bin/python main.py hand-test` prints a timestamped line when a hand appears, re-arms when it leaves. **`--macos-notify`** adds **osascript** notifications; **`--preview`** draws the feed with guide lines; **`--mode raised`** uses the upper-band wrist rule instead of any hand in frame.
 
-By default Chrome opens this repo’s **`index.html`** via a **`file://`** URL derived from **`main.py`**’s directory (works on any clone path). Useful flags: `--no-chrome`, `--no-notify`, `--no-startup-sound`, `--chrome-url 'https://...'`, `--startup-wav /path/to.wav`.
+By default **`open <url>`** runs with **no `-a`**, so **System Settings → Desktop & Dock → Default web browser** decides which app opens this repo’s **`index.html`** (**`file://`** next to **`main.py`**). Use **`--browser-app Safari`** (or **Firefox**, **Google Chrome**, **Brave Browser**, etc.) to force one app. For **`launchd`**, set **`FINGERSNAP_BROWSER_APP`** in the environment or extend the plist **`ProgramArguments`**. New tab vs new window is controlled by that browser; for a dedicated window, try Safari or a site-specific app (e.g. Fluid).
+
+Useful flags: `--no-chrome` (skip opening a browser), `--no-notify`, `--no-startup-sound`, `--chrome-url` / `--dashboard-url`, `--startup-wav /path/to.wav`.
 
 Tuning detection and timing: edit **`ListenerConfig`** at the top of **`main.py`**.
 
