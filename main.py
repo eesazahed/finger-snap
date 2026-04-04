@@ -91,7 +91,8 @@ class ListenerConfig:
     BaselineAlpha: float = 0.995
     CooldownSeconds: float = 0.12
     DoubleWindowMinSeconds: float = 0.2
-    DoubleWindowMaxSeconds: float = 1.2
+    # Max time after first snap to count a second snap as the pair (was 1.2; slower snaps need more).
+    DoubleWindowMaxSeconds: float = 2.5
     ThirdSnapRejectSeconds: float = 0.38
     ListenCooldownAfterTriggerSeconds: float = 1.0
     NotificationTitle: str = "Finger Snap"

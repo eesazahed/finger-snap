@@ -2,6 +2,7 @@
 
 ## 2026-04-04
 
+- **2026-04-04 — `ListenerConfig.DoubleWindowMaxSeconds`:** **1.2 → 2.5** s between first and second snap for slower double-snaps.
 - **2026-04-04 — default browser:** **`main.py`** uses **`open <url>`** (no **`-a`**) by default instead of forcing Chrome; **`--browser-app "Safari"`** etc. and **`FINGERSNAP_BROWSER_APP`**. **`OpenDashboardUrl`**, **`--dashboard-url`**. **`README.md`**: default browser + window note.
 - **2026-04-04 — dashboard weather:** **`index.html`** / **`assets/js/script.js`** — **Open-Meteo** (`api.open-meteo.com`) current conditions (no API key); **`data-weather-lat` / `data-weather-lon`** on **`<html>`** for **`file://`**; else **geolocation**. **`assets/css/styles.css`**: **`.hero .weather`**. Footer credits Open-Meteo.
 - **2026-04-04 — camera indicator:** **`start.sh`** plist runs **venv Python → `main.py --supervise`** (no bash wrapper) so the **green menu bar camera light** attributes to Python again. Restart loop moved **in-process** in **`main.py`**; sustained audio errors **end the session** and **`--supervise`** pauses then **reopens mic/camera**. **`RunFingerSnapAgent.sh`** kept as optional manual tool only.
