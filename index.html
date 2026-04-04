@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Welcome back</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-deep: #0c0e12;
+      --bg-card: rgba(22, 26, 34, 0.85);
+      --border: rgba(212, 175, 55, 0.22);
+      --accent: #37d46b;
+      --accent-soft: rgba(212, 175, 55, 0.12);
+      --text: #e8eaef;
+      --text-muted: #8b919d;
+      --radius: 14px;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+      font-optical-sizing: auto;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(212, 175, 55, 0.09), transparent 55%),
+        radial-gradient(ellipse 80% 50% at 100% 50%, rgba(80, 120, 200, 0.06), transparent),
+        var(--bg-deep);
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+
+    header.hero {
+      text-align: center;
+      padding: 2.5rem 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+
+    .hero h1 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-weight: 600;
+      font-size: clamp(2.25rem, 5vw, 3.25rem);
+      letter-spacing: 0.06em;
+      margin: 0 0 0.35rem;
+      background: linear-gradient(135deg, #f0e6d2 0%, var(--accent) 45%, #c9a227 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero .tagline {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin: 0 0 1rem;
+    }
+
+    .hero .clock {
+      font-variant-numeric: tabular-nums;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h2.section-title {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 1rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h2.section-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    h2.section-title.centered {
+      justify-content: center;
+      text-align: center;
+    }
+
+    h2.section-title.centered::after {
+      display: none;
+    }
+
+    section {
+      margin-bottom: 2.75rem;
+    }
+
+    .favourites-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .links-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 10.5rem));
+      gap: 0.85rem;
+      justify-content: center;
+      width: fit-content;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 520px) {
+      .links-grid {
+        grid-template-columns: repeat(2, minmax(0, 10.5rem));
+      }
+    }
+
+    a.tile {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+      width: 100%;
+      min-width: 0;
+      padding: 1rem 1.1rem;
+      text-decoration: none;
+      color: var(--text);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    a.tile:hover,
+    a.tile:focus-visible {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      outline: none;
+    }
+
+    a.tile .glyph {
+      font-size: 1.75rem;
+      line-height: 1;
+      margin-bottom: 0.15rem;
+    }
+
+    a.tile .label {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    a.tile .host {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      word-break: break-all;
+    }
+
+    footer {
+      text-align: center;
+      padding-top: 1rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1>Hello, Eesa</h1>
+      <p class="tagline" id="greeting">Welcome back.</p>
+      <div class="clock" id="clock" aria-live="polite"></div>
+    </header>
+
+    <main>
+      <section class="favourites-stage" aria-labelledby="links-heading">
+        <h2 id="links-heading" class="section-title centered">Favourites</h2>
+
+        <div class="links-grid">
+          <a class="tile" href="https://mail.google.com/" rel="noopener noreferrer" target="_blank">
+            <span class="glyph" aria-hidden="true">✉️</span>
+            <span class="label">Gmail</span>
+            <span class="host">mail.google.com</span>
+          </a>
+          <a class="tile" href="https://calendar.google.com/" rel="noopener noreferrer" target="_blank">
+            <span class="glyph" aria-hidden="true">📅</span>
+            <span class="label">Google Calendar</span>
+            <span class="host">calendar.google.com</span>
+          </a>
+          <a class="tile" href="https://drive.google.com/" rel="noopener noreferrer" target="_blank">
+            <span class="glyph" aria-hidden="true">📁</span>
+            <span class="label">Drive</span>
+            <span class="host">drive.google.com</span>
+          </a>
+          <a class="tile" href="https://www.notion.so/" rel="noopener noreferrer" target="_blank">
+            <span class="glyph" aria-hidden="true">📝</span>
+            <span class="label">Notion</span>
+            <span class="host">notion.so</span>
+          </a>
+
+          <a class="tile" href="https://www.youtube.com/" rel="noopener noreferrer" target="_blank">
+            <span class="glyph" aria-hidden="true">▶️</span>
+            <span class="label">YouTube</span>
+            <span class="host">youtube.com</span>
+          </a>
+          <a class="tile" href="https://open.spotify.com/" rel="noopener noreferrer" target="_blank">
+            <span class="glyph" aria-hidden="true">🎵</span>
+            <span class="label">Spotify</span>
+            <span class="host">open.spotify.com</span>
+          </a>
+          <a class="tile" href="https://www.reddit.com/" rel="noopener noreferrer" target="_blank">
+            <span class="glyph" aria-hidden="true">🤖</span>
+            <span class="label">Reddit</span>
+            <span class="host">reddit.com</span>
+          </a>
+          <a class="tile" href="https://www.wikipedia.org/" rel="noopener noreferrer" target="_blank">
+            <span class="glyph" aria-hidden="true">📖</span>
+            <span class="label">Wikipedia</span>
+            <span class="host">wikipedia.org</span>
+          </a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const greetingEl = document.getElementById("greeting");
+      const clockEl = document.getElementById("clock");
+
+      function updateGreeting() {
+        const h = new Date().getHours();
+        let msg = "Good evening, sir.";
+        if (h < 12) msg = "Good morning, sir.";
+        else if (h < 17) msg = "Good afternoon, sir.";
+        greetingEl.textContent = msg;
+      }
+
+      function pad(n) {
+        return n < 10 ? "0" + n : String(n);
+      }
+
+      function tick() {
+        const d = new Date();
+        const opts = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+        const dateStr = d.toLocaleDateString(undefined, opts);
+        const timeStr =
+          pad(d.getHours()) +
+          ":" +
+          pad(d.getMinutes()) +
+          ":" +
+          pad(d.getSeconds());
+        clockEl.textContent = dateStr + " · " + timeStr;
+      }
+
+      updateGreeting();
+      tick();
+      setInterval(tick, 1000);
+      setInterval(updateGreeting, 60 * 1000);
+    })();
+  </script>
+</body>
+</html>
