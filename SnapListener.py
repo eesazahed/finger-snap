@@ -32,8 +32,7 @@ class ListenerConfig:
     # After a confirmed double snap, ignore new gestures for this long.
     ListenCooldownAfterTriggerSeconds: float = 1.0
     NotificationTitle: str = "Finger Snap"
-    StartupSoundFilename: str = "startupsong.wav"
-    DefaultChromeUrl: str = "file:///Users/eesa/Documents/dev/finger-snap/index.html"
+    StartupSoundFilename: str = "assets/audio/startupsong.wav"
     ChromeAppName: str = "Google Chrome"
     # Share of total FFT power at/above this Hz (snaps are brighter overall).
     HighFreqCutoffHz: float = 3_000.0
@@ -259,7 +258,7 @@ def Main() -> None:
         metavar="URL",
         help=(
             "URL to open in Chrome on double snap "
-            f"(default: {ListenerConfig.DefaultChromeUrl})"
+            "(default: file URL of index.html in the same directory as SnapListener.py)"
         ),
     )
     Parser.add_argument(
@@ -276,12 +275,13 @@ def Main() -> None:
         "--startup-wav",
         default=None,
         metavar="PATH",
-        help="WAV file to play on double snap (default: next to SnapListener.py).",
+        help="WAV file to play on double snap (default: assets/audio/startupsong.wav under repo root).",
     )
     Args = Parser.parse_args()
     Config = ListenerConfig()
-    ChromeUrl = Args.chrome_url or Config.DefaultChromeUrl
     ScriptDir = Path(__file__).resolve().parent
+    DefaultIndexFileUrl = (ScriptDir / "index.html").as_uri()
+    ChromeUrl = Args.chrome_url or DefaultIndexFileUrl
     StartupWav = (
         Path(Args.startup_wav).expanduser().resolve()
         if Args.startup_wav

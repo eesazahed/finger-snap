@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,182 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg-deep: #0c0e12;
-      --bg-card: rgba(22, 26, 34, 0.85);
-      --border: rgba(212, 175, 55, 0.22);
-      --accent: #37d46b;
-      --accent-soft: rgba(212, 175, 55, 0.12);
-      --text: #e8eaef;
-      --text-muted: #8b919d;
-      --radius: 14px;
-      --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: "DM Sans", system-ui, sans-serif;
-      font-optical-sizing: auto;
-      color: var(--text);
-      background:
-        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(212, 175, 55, 0.09), transparent 55%),
-        radial-gradient(ellipse 80% 50% at 100% 50%, rgba(80, 120, 200, 0.06), transparent),
-        var(--bg-deep);
-      line-height: 1.5;
-    }
-
-    .wrap {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 2rem 1.25rem 3rem;
-    }
-
-    header.hero {
-      text-align: center;
-      padding: 2.5rem 1rem 2rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 2.5rem;
-    }
-
-    .hero h1 {
-      font-family: "Cormorant Garamond", Georgia, serif;
-      font-weight: 600;
-      font-size: clamp(2.25rem, 5vw, 3.25rem);
-      letter-spacing: 0.06em;
-      margin: 0 0 0.35rem;
-      background: linear-gradient(135deg, #f0e6d2 0%, var(--accent) 45%, #c9a227 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-
-    .hero .tagline {
-      font-size: 1.05rem;
-      color: var(--text-muted);
-      margin: 0 0 1rem;
-    }
-
-    .hero .clock {
-      font-variant-numeric: tabular-nums;
-      font-size: 0.95rem;
-      font-weight: 500;
-      color: var(--accent);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    h2.section-title {
-      font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin: 0 0 1rem;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    h2.section-title::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, var(--border), transparent);
-    }
-
-    h2.section-title.centered {
-      justify-content: center;
-      text-align: center;
-    }
-
-    h2.section-title.centered::after {
-      display: none;
-    }
-
-    section {
-      margin-bottom: 2.75rem;
-    }
-
-    .favourites-stage {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .links-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 10.5rem));
-      gap: 0.85rem;
-      justify-content: center;
-      width: fit-content;
-      max-width: 100%;
-      margin: 0 auto;
-    }
-
-    @media (max-width: 520px) {
-      .links-grid {
-        grid-template-columns: repeat(2, minmax(0, 10.5rem));
-      }
-    }
-
-    a.tile {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.25rem;
-      width: 100%;
-      min-width: 0;
-      padding: 1rem 1.1rem;
-      text-decoration: none;
-      color: var(--text);
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    }
-
-    a.tile:hover,
-    a.tile:focus-visible {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-      outline: none;
-    }
-
-    a.tile .glyph {
-      font-size: 1.75rem;
-      line-height: 1;
-      margin-bottom: 0.15rem;
-    }
-
-    a.tile .label {
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-
-    a.tile .host {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      word-break: break-all;
-    }
-
-    footer {
-      text-align: center;
-      padding-top: 1rem;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-  </style>
+  <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
   <div class="wrap">
@@ -193,6 +19,44 @@
     </header>
 
     <main>
+      <section aria-labelledby="todo-heading">
+        <h2 id="todo-heading" class="section-title centered">Tasks</h2>
+        <div class="todo-dashboard">
+          <div class="calendar-panel">
+            <div class="cal-header">
+              <button type="button" id="cal-prev" aria-label="Previous month">‹</button>
+              <h3 id="cal-month-label"></h3>
+              <button type="button" id="cal-next" aria-label="Next month">›</button>
+            </div>
+            <div class="cal-weekdays" aria-hidden="true">
+              <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+            </div>
+            <div id="cal-grid" class="cal-grid" aria-label="Task calendar by day"></div>
+            <button type="button" id="cal-clear-filter" class="btn-linkish" hidden>Show all dates</button>
+          </div>
+
+          <div class="todo-panel">
+            <form id="todo-form" class="todo-form">
+              <input
+                type="text"
+                id="todo-title"
+                name="title"
+                placeholder="New task…"
+                required
+                maxlength="200"
+                autocomplete="off"
+                aria-label="Task title"
+              />
+              <input type="date" id="todo-due" name="due" aria-label="Due date" />
+              <button type="submit">Add</button>
+            </form>
+            <p class="todo-filter-hint" id="todo-filter-hint" hidden></p>
+            <ul id="todo-list" class="todo-list"></ul>
+            <p id="todo-empty" class="todo-empty">No tasks yet. Add one above.</p>
+          </div>
+        </div>
+      </section>
+
       <section class="favourites-stage" aria-labelledby="links-heading">
         <h2 id="links-heading" class="section-title centered">Favourites</h2>
 
@@ -241,43 +105,13 @@
         </div>
       </section>
     </main>
+
+    <footer>
+      Tasks are stored in <code>localStorage</code> on this browser only.
+    </footer>
   </div>
 
-  <script>
-    (function () {
-      const greetingEl = document.getElementById("greeting");
-      const clockEl = document.getElementById("clock");
-
-      function updateGreeting() {
-        const h = new Date().getHours();
-        let msg = "Good evening, sir.";
-        if (h < 12) msg = "Good morning, sir.";
-        else if (h < 17) msg = "Good afternoon, sir.";
-        greetingEl.textContent = msg;
-      }
-
-      function pad(n) {
-        return n < 10 ? "0" + n : String(n);
-      }
-
-      function tick() {
-        const d = new Date();
-        const opts = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
-        const dateStr = d.toLocaleDateString(undefined, opts);
-        const timeStr =
-          pad(d.getHours()) +
-          ":" +
-          pad(d.getMinutes()) +
-          ":" +
-          pad(d.getSeconds());
-        clockEl.textContent = dateStr + " · " + timeStr;
-      }
-
-      updateGreeting();
-      tick();
-      setInterval(tick, 1000);
-      setInterval(updateGreeting, 60 * 1000);
-    })();
-  </script>
+  <script src="assets/js/script.js" defer></script>
 </body>
 </html>
+  

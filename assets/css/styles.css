@@ -1,0 +1,508 @@
+:root {
+  --bg-deep: #0c0e12;
+  --bg-card: rgba(22, 26, 34, 0.85);
+  --border: rgba(212, 175, 55, 0.22);
+  --accent: #37d46b;
+  --accent-soft: rgba(55, 212, 107, 0.12);
+  --text: #e8eaef;
+  --text-muted: #8b919d;
+  --danger: #e85d5d;
+  --radius: 14px;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-optical-sizing: auto;
+  color: var(--text);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -30%, rgba(212, 175, 55, 0.09), transparent 55%),
+    radial-gradient(ellipse 80% 50% at 100% 50%, rgba(80, 120, 200, 0.06), transparent),
+    var(--bg-deep);
+  line-height: 1.5;
+}
+
+.wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+header.hero {
+  text-align: center;
+  padding: 2.5rem 1rem 2rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2.5rem;
+}
+
+.hero h1 {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(2.25rem, 5vw, 3.25rem);
+  letter-spacing: 0.06em;
+  margin: 0 0 0.35rem;
+  background: linear-gradient(135deg, #f0e6d2 0%, var(--accent) 45%, #c9a227 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero .tagline {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem;
+}
+
+.hero .clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h2.section-title {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+h2.section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+
+h2.section-title.centered {
+  justify-content: center;
+  text-align: center;
+}
+
+h2.section-title.centered::after {
+  display: none;
+}
+
+section {
+  margin-bottom: 2.75rem;
+}
+
+.favourites-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.links-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 10.5rem));
+  gap: 0.85rem;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 520px) {
+  .links-grid {
+    grid-template-columns: repeat(2, minmax(0, 10.5rem));
+  }
+}
+
+a.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+a.tile:hover,
+a.tile:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  outline: none;
+}
+
+a.tile .glyph {
+  font-size: 1.75rem;
+  line-height: 1;
+  margin-bottom: 0.15rem;
+}
+
+a.tile .label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+a.tile .host {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+footer {
+  text-align: center;
+  padding-top: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* —— Todo + calendar —— */
+
+.todo-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 17.5rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .todo-dashboard {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calendar-panel,
+.todo-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.cal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  flex: 1;
+}
+
+.cal-header button {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.cal-header button:hover,
+.cal-header button:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 0.35rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  max-height: 2.6rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.cal-day:hover,
+.cal-day:focus-visible {
+  border-color: var(--border);
+  outline: none;
+}
+
+.cal-day.muted {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+.cal-day.today {
+  border-color: var(--accent);
+}
+
+.cal-day.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.cal-day .cal-dots {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 6px;
+}
+
+.cal-day .cal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.cal-day .cal-dot.done {
+  background: var(--text-muted);
+  opacity: 0.5;
+}
+
+.btn-linkish {
+  margin-top: 0.75rem;
+  width: 100%;
+  padding: 0.45rem;
+  font-size: 0.8rem;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.btn-linkish:hover,
+.btn-linkish:focus-visible {
+  outline: none;
+  color: #5ae88a;
+}
+
+.btn-linkish[hidden] {
+  display: none;
+}
+
+.todo-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.todo-form input[type="text"] {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font: inherit;
+}
+
+.todo-form input[type="date"] {
+  padding: 0.55rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font: inherit;
+  color-scheme: dark;
+}
+
+.todo-form button[type="submit"] {
+  padding: 0.6rem 1.1rem;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #0c0e12;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.todo-form button[type="submit"]:hover,
+.todo-form button[type="submit"]:focus-visible {
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.todo-filter-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem;
+}
+
+.todo-filter-hint[hidden] {
+  display: none;
+}
+
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.todo-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 1rem 0;
+}
+
+.todo-empty[hidden] {
+  display: none;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.5rem 0.65rem;
+  align-items: start;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.todo-item.done .todo-title-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.todo-item input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.2rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.todo-body {
+  min-width: 0;
+}
+
+.todo-title-text {
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.todo-title-input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--text);
+  font: inherit;
+}
+
+.todo-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.todo-meta label {
+  margin-right: 0.35rem;
+}
+
+.todo-meta input[type="date"] {
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  color-scheme: dark;
+}
+
+.todo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.todo-actions button {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.todo-actions button:hover,
+.todo-actions button:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.todo-actions button.danger:hover,
+.todo-actions button.danger:focus-visible {
+  border-color: var(--danger);
+  color: var(--danger);
+}
