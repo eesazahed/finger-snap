@@ -12,3 +12,4 @@
 - Added `stop.sh`: `launchctl bootout` for `com.eesa.fingersnap` and `pkill` for any in-terminal `SnapListener.py` from this repo path.
 - `index.html`: live greeting + clock; **centred 4×4** favourites grid (16 tiles); calendar section removed.
 - Repo hygiene for GitHub: `.gitignore` (venv, caches, OS/editor noise), `README.md`, initial Git commit instructions left to user after `git remote add`.
+- `git remote add` / `origin` → `https://github.com/eesazahed/finger-snap.git`; push must be run locally with GitHub auth (`gh auth login`, credential manager, or PAT).
