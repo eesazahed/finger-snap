@@ -13,6 +13,7 @@ for camera features; model caches under ``.cache/``.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import threading
@@ -481,6 +482,14 @@ def MainListen() -> None:
         metavar="N",
         help="Camera device index when using --require-hand (default: 0).",
     )
+    Parser.add_argument(
+        "--supervise",
+        action="store_true",
+        help=(
+            "After each listen session ends, start another (delay from FINGERSNAP_RESTART_DELAY). "
+            "Use under launchd so the venv Python process owns the camera (green menu bar indicator)."
+        ),
+    )
     Args = Parser.parse_args()
     Config = ListenerConfig()
     if Args.disable_very_high_snap_gate:
@@ -495,68 +504,110 @@ def MainListen() -> None:
         if Args.startup_wav
         else ScriptDir / Config.StartupSoundFilename
     )
+    RestartDelaySec = float(os.environ.get("FINGERSNAP_RESTART_DELAY", "5"))
 
-    HandStop: Optional[threading.Event] = None
-    HandThread: Optional[threading.Thread] = None
-    HandPresentFn: Optional[Callable[[], bool]] = None
-    OnHandGateRejected: Optional[Callable[[], None]] = None
-    if Args.require_hand:
-        Tracker, HandStop, HandThread = StartHandPresencePipeline(
-            ScriptDir, Args.camera_index
-        )
-        HandPresentFn = Tracker.IsPresent
-
-        def OnHandGateRejected() -> None:
-            print(
-                "Double snap ignored: no hand visible in the camera.",
-                file=sys.stderr,
+    def RunOneListenSession() -> None:
+        HandStop: Optional[threading.Event] = None
+        HandThread: Optional[threading.Thread] = None
+        HandPresentFn: Optional[Callable[[], bool]] = None
+        OnHandGateRejected: Optional[Callable[[], None]] = None
+        if Args.require_hand:
+            Tracker, HandStop, HandThread = StartHandPresencePipeline(
+                ScriptDir, Args.camera_index
             )
+            HandPresentFn = Tracker.IsPresent
 
-    Detector = DoubleSnapDetector(
-        Config,
-        HandPresentFn=HandPresentFn,
-        OnHandGateRejected=OnHandGateRejected,
-    )
+            def OnHandGateRejected() -> None:
+                print(
+                    "Double snap ignored: no hand visible in the camera.",
+                    file=sys.stderr,
+                )
 
-    def Callback(Indata, Frames, TimeInfo, Status) -> None:
-        if Status:
-            print(f"Audio status: {Status}", file=sys.stderr)
-        Block = Indata.copy()
-        Now = time.perf_counter()
-        if not Detector.ProcessBlock(Block, Now):
-            return
-        if not Args.no_startup_sound:
-            PlayStartupSound(StartupWav)
-        if not Args.no_chrome:
-            OpenChromeTab(ChromeUrl, Config.ChromeAppName)
-        if Args.no_notify:
-            print("Double snap detected.", flush=True)
-        else:
-            SendMacNotification(Config.NotificationTitle, "Double snap detected.")
+        Detector = DoubleSnapDetector(
+            Config,
+            HandPresentFn=HandPresentFn,
+            OnHandGateRejected=OnHandGateRejected,
+        )
 
-    try:
-        with sd.InputStream(
-            samplerate=Config.SampleRate,
-            blocksize=Config.BlockSize,
-            channels=1,
-            dtype="float32",
-            callback=Callback,
-        ):
-            Msg = "Listening for double snaps. Ctrl+C to stop."
-            if Config.AntiClapVeryHighCutoffHz > 0.0 or Config.MaxClapBoomHardRejectRatio > 0.0:
-                Msg += " (spectral anti-clap: boom + HF.)"
-            if Args.require_hand:
-                Msg += " (hand must be visible when the second snap window closes.)"
-            print(Msg, file=sys.stderr)
+        RestartRequested = threading.Event()
+        MaxSustainedAudioErrors = 250
+        AudioErrorStreak = [0]
+
+        def Callback(Indata, Frames, TimeInfo, Status) -> None:
+            if Status:
+                AudioErrorStreak[0] += 1
+                print(f"Audio status: {Status}", file=sys.stderr)
+                if AudioErrorStreak[0] >= MaxSustainedAudioErrors:
+                    print(
+                        "Audio input errors sustained; restarting listen session.",
+                        file=sys.stderr,
+                    )
+                    RestartRequested.set()
+                    return
+            else:
+                AudioErrorStreak[0] = 0
+            Block = Indata.copy()
+            Now = time.perf_counter()
+            if not Detector.ProcessBlock(Block, Now):
+                return
+            if not Args.no_startup_sound:
+                PlayStartupSound(StartupWav)
+            if not Args.no_chrome:
+                OpenChromeTab(ChromeUrl, Config.ChromeAppName)
+            if Args.no_notify:
+                print("Double snap detected.", flush=True)
+            else:
+                SendMacNotification(Config.NotificationTitle, "Double snap detected.")
+
+        try:
+            with sd.InputStream(
+                samplerate=Config.SampleRate,
+                blocksize=Config.BlockSize,
+                channels=1,
+                dtype="float32",
+                callback=Callback,
+            ):
+                Msg = "Listening for double snaps. Ctrl+C to stop."
+                if (
+                    Config.AntiClapVeryHighCutoffHz > 0.0
+                    or Config.MaxClapBoomHardRejectRatio > 0.0
+                ):
+                    Msg += " (spectral anti-clap: boom + HF.)"
+                if Args.require_hand:
+                    Msg += " (hand must be visible when the second snap window closes.)"
+                if Args.supervise:
+                    Msg += f" (supervise: {RestartDelaySec}s between session restarts.)"
+                print(Msg, file=sys.stderr)
+                while not RestartRequested.is_set():
+                    time.sleep(0.25)
+        finally:
+            if HandStop is not None:
+                HandStop.set()
+            if HandThread is not None:
+                HandThread.join(timeout=3.0)
+
+    if Args.supervise:
+        print(
+            "Supervise: relaunching listen sessions in-process (same Python = camera indicator). "
+            "Ctrl+C to stop.",
+            file=sys.stderr,
+        )
+        try:
             while True:
-                time.sleep(0.25)
-    except KeyboardInterrupt:
-        print("Stopped.", file=sys.stderr)
-    finally:
-        if HandStop is not None:
-            HandStop.set()
-        if HandThread is not None:
-            HandThread.join(timeout=3.0)
+                RunOneListenSession()
+                print(
+                    f"Listen session ended; pausing {RestartDelaySec}s before restart.",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time.sleep(RestartDelaySec)
+        except KeyboardInterrupt:
+            print("Stopped.", file=sys.stderr)
+    else:
+        try:
+            RunOneListenSession()
+        except KeyboardInterrupt:
+            print("Stopped.", file=sys.stderr)
 
 
 def MainHandTest() -> None:

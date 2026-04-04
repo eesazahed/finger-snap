@@ -6,6 +6,9 @@ Uid="$(id -u)"
 Root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 launchctl bootout "gui/${Uid}/${Label}" 2>/dev/null || true
+if pkill -f "${Root}/RunFingerSnapAgent.sh" 2>/dev/null; then
+	echo "Stopped RunFingerSnapAgent.sh (launchd-style loop)."
+fi
 if pkill -f "${Root}/main.py" 2>/dev/null; then
 	echo "Stopped manual main.py process(es)."
 fi

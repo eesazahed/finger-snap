@@ -2,6 +2,8 @@
 
 ## 2026-04-04
 
+- **2026-04-04 — camera indicator:** **`start.sh`** plist runs **venv Python → `main.py --supervise`** (no bash wrapper) so the **green menu bar camera light** attributes to Python again. Restart loop moved **in-process** in **`main.py`**; sustained audio errors **end the session** and **`--supervise`** pauses then **reopens mic/camera**. **`RunFingerSnapAgent.sh`** kept as optional manual tool only.
+- **2026-04-04 — sleep/wake + launchd:** **`RunFingerSnapAgent.sh`** wraps **`main.py`** in a **restart loop**; **`start.sh`** plist invokes the runner (not Python directly) + **`ThrottleInterval` 15**. **`main.py`**: exit after **~250** consecutive PortAudio **callback status** errors so the runner relaunches. **`stop.sh`**: **`pkill`** runner + **`main.py`**. **`README.md`**: background / wake note. **`install.sh`**: **`chmod +x`** helper scripts.
 - **2026-04-04 — `install.sh`:** creates **`.venv`**, **`pip install -r requirements.txt`**, then **`mediapipe`** + **`opencv-python-headless`**; **`FINGERSNAP_SKIP_HAND_DEPS=1`** skips camera stack. **`README.md`**: Setup points to **`install.sh`**.
 - **2026-04-04 — consolidation:** **`SnapListener.py`** and **`HandRaiseNotifyTest.py`** removed; single **`main.py`** — default run = double-snap listener; **`python main.py hand-test`** = former hand script. Shared **`EnsureHandLandmarkerModel`**, **`SendMacNotification`**, MediaPipe options. **`start.sh`** / **`stop.sh`** / **`README.md`** / **`.gitignore`** point at **`main.py`**.
 - **2026-04-04 — `start.sh`:** runs **`stop.sh`** first when present (clean slate); plist default **`--require-hand`**; **`FINGERSNAP_REQUIRE_HAND=0`** / **`FINGERSNAP_CAMERA_INDEX`**; then **`bootout`** + **`bootstrap`**. **`README.md`**: Launch Agent note.

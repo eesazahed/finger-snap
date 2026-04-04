@@ -18,6 +18,8 @@ CameraIndex="${FINGERSNAP_CAMERA_INDEX:-}"
 if [[ -n "${CameraIndex}" ]]; then
 	ExtraProgramArgs+=$'\n\t\t<string>--camera-index</string>\n\t\t<string>'"${CameraIndex}"'</string>'
 fi
+# launchd runs Python directly (--supervise) so macOS attributes the camera to this process (green indicator).
+SuperviseArg=$'\n\t\t<string>--supervise</string>'
 
 if [[ ! -x "${PythonExe}" ]]; then
 	echo "Missing venv interpreter: ${PythonExe} (create .venv and pip install -r requirements.txt)" >&2
@@ -27,7 +29,6 @@ if [[ ! -f "${Listener}" ]]; then
 	echo "Missing ${Listener}" >&2
 	exit 1
 fi
-
 # Unload LaunchAgent and kill any manual main.py (same as stop.sh) so start is never stacked.
 if [[ -f "${Root}/stop.sh" ]]; then
 	bash "${Root}/stop.sh"
@@ -47,7 +48,7 @@ cat > "${Tmp}" <<EOF
 	<key>ProgramArguments</key>
 	<array>
 		<string>${PythonExe}</string>
-		<string>${Listener}</string>${ExtraProgramArgs}
+		<string>${Listener}</string>${SuperviseArg}${ExtraProgramArgs}
 	</array>
 	<key>WorkingDirectory</key>
 	<string>${Root}</string>
@@ -55,6 +56,8 @@ cat > "${Tmp}" <<EOF
 	<true/>
 	<key>KeepAlive</key>
 	<true/>
+	<key>ThrottleInterval</key>
+	<integer>15</integer>
 	<key>StandardOutPath</key>
 	<string>/tmp/fingersnap.out.log</string>
 	<key>StandardErrorPath</key>
@@ -70,8 +73,8 @@ Uid="$(id -u)"
 launchctl bootout "gui/${Uid}/${Label}" 2>/dev/null || true
 launchctl bootstrap "gui/${Uid}" "${PlistDest}"
 
-ModeNote=""
+ModeNote=" (--supervise in plist for sleep/wake + camera indicator)"
 if [[ "${RequireHand}" == "1" ]]; then
-	ModeNote=" (with --require-hand; set FINGERSNAP_REQUIRE_HAND=0 for mic-only)"
+	ModeNote+=" (with --require-hand; FINGERSNAP_REQUIRE_HAND=0 for mic-only)"
 fi
 echo "Finger snap listener started (${Label})${ModeNote}. Logs: /tmp/fingersnap.out.log /tmp/fingersnap.err.log"

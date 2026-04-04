@@ -35,6 +35,8 @@ else
 	"${Pip}" install mediapipe opencv-python-headless
 fi
 
+chmod +x "${Root}/start.sh" "${Root}/stop.sh" "${Root}/RunFingerSnapAgent.sh" 2>/dev/null || true
+
 echo ""
 echo "Done. Examples:"
 echo "  ${Root}/.venv/bin/python main.py"

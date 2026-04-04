@@ -10,6 +10,7 @@ finger-snap/
 ├── index.html
 ├── requirements.txt
 ├── install.sh
+├── RunFingerSnapAgent.sh   # launchd: restart loop around main.py
 ├── start.sh / stop.sh
 ├── assets/
 │   ├── audio/startupsong.wav   # default chime for double snap
@@ -60,7 +61,9 @@ Tuning detection and timing: edit **`ListenerConfig`** at the top of **`main.py`
 
 ## Launch Agent (background)
 
-`start.sh` runs `stop.sh` first (if it exists) so you can restart without a separate stop, installs `~/Library/LaunchAgents/com.eesa.fingersnap.plist` (paths derived from the repo), and runs `launchctl bootstrap`. By default the plist includes **`--require-hand`** (webcam + **mediapipe** / **opencv** in `.venv`); run **`FINGERSNAP_REQUIRE_HAND=0 ./start.sh`** for mic-only. Optional **`FINGERSNAP_CAMERA_INDEX=N`**. `stop.sh` unloads the agent and kills a manual **`main.py`** from this repo path.
+`start.sh` runs `stop.sh` first (if it exists) so you can restart without a separate stop, installs `~/Library/LaunchAgents/com.eesa.fingersnap.plist` (paths derived from the repo), and runs `launchctl bootstrap`. The plist runs **your venv `python3` → `main.py --supervise …` directly** (not a shell wrapper) so **macOS ties the webcam to that Python process** and the **green camera indicator** in the menu bar works like an interactive run. **`--supervise`** restarts each **listen session inside the same process** after errors or session end, with **`FINGERSNAP_RESTART_DELAY`** (default 5s) between sessions. Sustained PortAudio callback errors still end a session so mic + camera reopen on the next lap. **`ThrottleInterval`** (15s) limits how fast `launchd` respawns if the whole process exits.
+
+By default the plist passes **`--require-hand`** (webcam + **mediapipe** / **opencv** in `.venv`); run **`FINGERSNAP_REQUIRE_HAND=0 ./start.sh`** for mic-only. Optional **`FINGERSNAP_CAMERA_INDEX=N`**. `stop.sh` unloads the agent and kills **`main.py`** / optional **`RunFingerSnapAgent.sh`** orphans from this repo path.
 
 To change the bundle identifier or label, edit `start.sh` / `stop.sh` and the plist `Label` key together.
 
