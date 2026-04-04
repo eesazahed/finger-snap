@@ -1,6 +1,6 @@
 # finger-snap
 
-macOS microphone listener that detects **exactly two finger snaps** (a third snap cancels the gesture), then plays a startup sound, optionally opens your **default browser** (or a chosen app) to the dashboard URL, and shows a notification. Includes a small dashboard (`index.html` + `assets/`) and shell helpers to run under `launchd`.
+macOS microphone listener that detects **exactly two finger snaps** (a third snap cancels the gesture), then plays a startup sound, optionally opens your **default browser** (or a chosen app) to the dashboard URL, and prints **Double snap detected.** to stdout. Includes a small dashboard (`index.html` + `assets/`) and shell helpers to run under `launchd`.
 
 ## Repository layout
 
@@ -22,7 +22,7 @@ finger-snap/
 
 ## Requirements
 
-- macOS (uses `afplay`, `open`, `osascript`)
+- macOS (uses `afplay`, `open`)
 - Python 3.10+
 - Microphone access for the Python interpreter you use
 - [PortAudio](https://formulae.brew.sh/formula/portaudio) via Homebrew if `sounddevice` fails to load: `brew install portaudio`
@@ -51,11 +51,11 @@ Default startup sound: **`assets/audio/startupsong.wav`**. Override with `--star
 
 **Snaps + visible hand:** install **`mediapipe`** and **`opencv-python-headless`** in the venv (same as the hand test below), allow **Camera**, then run with **`--require-hand`**. The listener still needs two valid snaps; when the post-second-snap window closes, MediaPipe must see at least one hand in frame (**presence** mode). If not, the gesture is discarded (stderr: *no hand visible*) and you can snap again. Use **`--camera-index N`** if the wrong device opens.
 
-**Hand-in-frame test (webcam → stdout echo):** after the venv setup above, run `./.venv/bin/pip install mediapipe opencv-python-headless` (never plain `pip install` on Homebrew Python—it errors with **externally-managed-environment** / PEP 668). Default: **headless** (no camera window)—`./.venv/bin/python main.py hand-test` prints a timestamped line when a hand appears, re-arms when it leaves. **`--macos-notify`** adds **osascript** notifications; **`--preview`** draws the feed with guide lines; **`--mode raised`** uses the upper-band wrist rule instead of any hand in frame.
+**Hand-in-frame test (webcam → stdout echo):** after the venv setup above, run `./.venv/bin/pip install mediapipe opencv-python-headless` (never plain `pip install` on Homebrew Python—it errors with **externally-managed-environment** / PEP 668). Default: **headless** (no camera window)—`./.venv/bin/python main.py hand-test` prints a timestamped line when a hand appears, re-arms when it leaves. **`--preview`** draws the feed with guide lines; **`--mode raised`** uses the upper-band wrist rule instead of any hand in frame.
 
 By default **`open <url>`** runs with **no `-a`**, so **System Settings → Desktop & Dock → Default web browser** decides which app opens this repo’s **`index.html`** (**`file://`** next to **`main.py`**). Use **`--browser-app Safari`** (or **Firefox**, **Google Chrome**, **Brave Browser**, etc.) to force one app. For **`launchd`**, set **`FINGERSNAP_BROWSER_APP`** in the environment or extend the plist **`ProgramArguments`**. New tab vs new window is controlled by that browser; for a dedicated window, try Safari or a site-specific app (e.g. Fluid).
 
-Useful flags: `--no-chrome` (skip opening a browser), `--no-notify`, `--no-startup-sound`, `--chrome-url` / `--dashboard-url`, `--startup-wav /path/to.wav`.
+Useful flags: `--no-chrome` (skip opening a browser), `--no-startup-sound`, `--chrome-url` / `--dashboard-url`, `--startup-wav /path/to.wav`.
 
 Tuning detection and timing: edit **`ListenerConfig`** at the top of **`main.py`**.
 

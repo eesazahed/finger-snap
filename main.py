@@ -3,9 +3,10 @@
 finger-snap entry point (macOS).
 
 **Default command (no ``hand-test`` prefix):** double finger-snap listener — mic,
-optional ``--require-hand`` webcam gate (MediaPipe presence). See ``MainListen``.
+optional ``--require-hand`` webcam gate (MediaPipe presence). Confirmed snaps print
+to stdout (no macOS banners). See ``MainListen``.
 
-**Hand test:** ``python main.py hand-test`` — webcam hand echo / optional notify
+**Hand test:** ``python main.py hand-test`` — webcam hand echo to stdout
 (formerly ``HandRaiseNotifyTest.py``). Same ``pip install mediapipe opencv-python-headless``
 for camera features; model caches under ``.cache/``.
 """
@@ -95,7 +96,6 @@ class ListenerConfig:
     DoubleWindowMaxSeconds: float = 2.5
     ThirdSnapRejectSeconds: float = 0.38
     ListenCooldownAfterTriggerSeconds: float = 1.0
-    NotificationTitle: str = "Finger Snap"
     StartupSoundFilename: str = "assets/audio/startupsong.wav"
     ChromeAppName: str = "Google Chrome"
     HighFreqCutoffHz: float = 3_000.0
@@ -330,21 +330,6 @@ def PlayStartupSound(WavPath: Path) -> None:
         print(f"Could not play startup sound: {Exc}", file=sys.stderr)
 
 
-def SendMacNotification(Title: str, Message: str) -> None:
-    SafeTitle = Title.replace("\\", "\\\\").replace('"', '\\"')
-    SafeMessage = Message.replace("\\", "\\\\").replace('"', '\\"')
-    Script = f'display notification "{SafeMessage}" with title "{SafeTitle}"'
-    try:
-        subprocess.run(
-            ["osascript", "-e", Script],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError:
-        print("Could not run osascript; install on macOS for notifications.", file=sys.stderr)
-
-
 class HandPresenceTracker:
     """Thread-safe latest hand-in-frame flag (MediaPipe presence: any hand)."""
 
@@ -430,11 +415,6 @@ def StartHandPresencePipeline(
 
 def MainListen() -> None:
     Parser = argparse.ArgumentParser(description="Detect double finger snaps from the mic.")
-    Parser.add_argument(
-        "--no-notify",
-        action="store_true",
-        help="Print to stdout instead of showing a macOS notification.",
-    )
     Parser.add_argument(
         "--chrome-url",
         default=None,
@@ -555,10 +535,7 @@ def MainListen() -> None:
                 PlayStartupSound(StartupWav)
             if not Args.no_chrome:
                 OpenChromeTab(ChromeUrl, Config.ChromeAppName)
-            if Args.no_notify:
-                print("Double snap detected.", flush=True)
-            else:
-                SendMacNotification(Config.NotificationTitle, "Double snap detected.")
+            print("Double snap detected.", flush=True)
 
         try:
             with sd.InputStream(
@@ -646,7 +623,7 @@ def MainHandTest() -> None:
         type=float,
         default=2.5,
         metavar="SEC",
-        help="Minimum seconds between events (echo / optional notify). Default: 2.5.",
+        help="Minimum seconds between echo lines. Default: 2.5.",
     )
     Parser.add_argument(
         "--preview",
@@ -654,19 +631,14 @@ def MainHandTest() -> None:
         help="Show a small camera window; press q to quit.",
     )
     Parser.add_argument(
-        "--macos-notify",
-        action="store_true",
-        help="Also post a macOS notification (osascript) using the same title/body.",
-    )
-    Parser.add_argument(
         "--notification-title",
         default="Hand",
-        help="Echo line title (and macOS title if --macos-notify).",
+        help="Echo line title prefix.",
     )
     Parser.add_argument(
         "--notification-body",
         default="Detected in camera",
-        help="Echo line body (and macOS body if --macos-notify).",
+        help="Echo line body text.",
     )
     Args = Parser.parse_args()
     if Args.mode == "raised" and Args.clear_y <= Args.raise_y:
@@ -718,8 +690,6 @@ def MainHandTest() -> None:
             "Raise wrist into the **upper** band to echo; lower past clear line to re-arm. "
             "Ctrl+C to stop."
         )
-    if Args.macos_notify:
-        Hint += " Also posting macOS notifications."
     if Args.preview:
         Hint += " Press q in the preview window to quit."
     print(Hint, file=sys.stderr)
@@ -753,10 +723,6 @@ def MainHandTest() -> None:
                 Now = time.perf_counter()
                 if Now - LastNotifyT >= Args.min_interval:
                     EchoHandEvent(Args.notification_title, Args.notification_body)
-                    if Args.macos_notify:
-                        SendMacNotification(
-                            Args.notification_title, Args.notification_body
-                        )
                     LastNotifyT = Now
                     Armed = False
 
