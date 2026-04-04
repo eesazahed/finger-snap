@@ -22,3 +22,6 @@ build/
 *.swo
 
 *.log
+
+# MediaPipe hand model (main.py hand-test / --require-hand)
+.cache/

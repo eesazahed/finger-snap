@@ -4,8 +4,20 @@ set -euo pipefail
 Root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 Label="com.eesa.fingersnap"
 PythonExe="${Root}/.venv/bin/python3"
-Listener="${Root}/SnapListener.py"
+Listener="${Root}/main.py"
 PlistDest="${HOME}/Library/LaunchAgents/${Label}.plist"
+
+# Double snap + webcam: require a visible hand at confirm (mediapipe + opencv in .venv).
+# Mic-only: FINGERSNAP_REQUIRE_HAND=0 ./start.sh
+RequireHand="${FINGERSNAP_REQUIRE_HAND:-1}"
+ExtraProgramArgs=""
+if [[ "${RequireHand}" == "1" ]]; then
+	ExtraProgramArgs=$'\n\t\t<string>--require-hand</string>'
+fi
+CameraIndex="${FINGERSNAP_CAMERA_INDEX:-}"
+if [[ -n "${CameraIndex}" ]]; then
+	ExtraProgramArgs+=$'\n\t\t<string>--camera-index</string>\n\t\t<string>'"${CameraIndex}"'</string>'
+fi
 
 if [[ ! -x "${PythonExe}" ]]; then
 	echo "Missing venv interpreter: ${PythonExe} (create .venv and pip install -r requirements.txt)" >&2
@@ -14,6 +26,11 @@ fi
 if [[ ! -f "${Listener}" ]]; then
 	echo "Missing ${Listener}" >&2
 	exit 1
+fi
+
+# Unload LaunchAgent and kill any manual main.py (same as stop.sh) so start is never stacked.
+if [[ -f "${Root}/stop.sh" ]]; then
+	bash "${Root}/stop.sh"
 fi
 
 mkdir -p "${HOME}/Library/LaunchAgents"
@@ -30,7 +47,7 @@ cat > "${Tmp}" <<EOF
 	<key>ProgramArguments</key>
 	<array>
 		<string>${PythonExe}</string>
-		<string>${Listener}</string>
+		<string>${Listener}</string>${ExtraProgramArgs}
 	</array>
 	<key>WorkingDirectory</key>
 	<string>${Root}</string>
@@ -53,4 +70,8 @@ Uid="$(id -u)"
 launchctl bootout "gui/${Uid}/${Label}" 2>/dev/null || true
 launchctl bootstrap "gui/${Uid}" "${PlistDest}"
 
-echo "Finger snap listener started (${Label}). Logs: /tmp/fingersnap.out.log /tmp/fingersnap.err.log"
+ModeNote=""
+if [[ "${RequireHand}" == "1" ]]; then
+	ModeNote=" (with --require-hand; set FINGERSNAP_REQUIRE_HAND=0 for mic-only)"
+fi
+echo "Finger snap listener started (${Label})${ModeNote}. Logs: /tmp/fingersnap.out.log /tmp/fingersnap.err.log"

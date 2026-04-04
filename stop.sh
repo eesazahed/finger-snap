@@ -6,8 +6,8 @@ Uid="$(id -u)"
 Root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 launchctl bootout "gui/${Uid}/${Label}" 2>/dev/null || true
-if pkill -f "${Root}/SnapListener.py" 2>/dev/null; then
-	echo "Stopped manual SnapListener.py process(es)."
+if pkill -f "${Root}/main.py" 2>/dev/null; then
+	echo "Stopped manual main.py process(es)."
 fi
 
 echo "Finger snap listener stopped (${Label})."
