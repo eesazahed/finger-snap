@@ -92,12 +92,13 @@ class ListenerConfig:
     BaselineAlpha: float = 0.995
     CooldownSeconds: float = 0.12
     DoubleWindowMinSeconds: float = 0.2
-    # Max time after first snap to count a second snap as the pair (was 1.2; slower snaps need more).
     DoubleWindowMaxSeconds: float = 2.5
     ThirdSnapRejectSeconds: float = 0.38
     ListenCooldownAfterTriggerSeconds: float = 1.0
     StartupSoundFilename: str = "assets/audio/startupsong.wav"
     ChromeAppName: str = "Google Chrome"
+    # macOS app name; use "Visual Studio Code - Insiders" for Insiders.
+    VsCodeAppName: str = "Visual Studio Code"
     HighFreqCutoffHz: float = 3_000.0
     MinHighFreqEnergyRatio: float = 0.34
     LowMidBandLowHz: float = 100.0
@@ -312,6 +313,24 @@ def OpenChromeTab(Url: str, ChromeAppName: str) -> None:
         print(f"Could not run open for Chrome: {Exc}", file=sys.stderr)
 
 
+def OpenVisualStudioCode(WorkspacePath: Path, AppName: str) -> None:
+    """Opens a folder in VS Code (macOS ``open -a``)."""
+    try:
+        Result = subprocess.run(
+            ["open", "-a", AppName, str(WorkspacePath.resolve())],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if Result.returncode != 0:
+            print(
+                f"Could not open VS Code ({Result.returncode}): {Result.stderr.strip()}",
+                file=sys.stderr,
+            )
+    except OSError as Exc:
+        print(f"Could not run open for VS Code: {Exc}", file=sys.stderr)
+
+
 def PlayStartupSound(WavPath: Path) -> None:
     """Play a WAV via macOS ``afplay`` without blocking the audio input callback."""
     if not WavPath.is_file():
@@ -430,6 +449,11 @@ def MainListen() -> None:
         help="Do not open Google Chrome when a double snap is detected.",
     )
     Parser.add_argument(
+        "--no-vscode",
+        action="store_true",
+        help="Do not open Visual Studio Code for this repo folder on double snap.",
+    )
+    Parser.add_argument(
         "--no-startup-sound",
         action="store_true",
         help="Do not play startupsong.wav when a double snap is confirmed.",
@@ -534,7 +558,13 @@ def MainListen() -> None:
             if not Args.no_startup_sound:
                 PlayStartupSound(StartupWav)
             if not Args.no_chrome:
+                OpenChromeTab("https://gmail.com", Config.ChromeAppName)
+                OpenChromeTab("https://chatgpt.com", Config.ChromeAppName)
+                OpenChromeTab("https://x.com", Config.ChromeAppName)
+                OpenChromeTab("https://linkedin.com", Config.ChromeAppName)
                 OpenChromeTab(ChromeUrl, Config.ChromeAppName)
+            if not Args.no_vscode:
+                OpenVisualStudioCode(ScriptDir, Config.VsCodeAppName)
             print("Double snap detected.", flush=True)
 
         try:
