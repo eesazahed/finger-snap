@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One script: stop any previous instance, run main.py in the background (nohup).
 #
-#   ./start.sh                    # background: --supervise [--require-hand]
+#   ./start.sh                    # background: --supervise [--require-hand] [--hand-gesture]
 #   ./start.sh stop               # kill PID + old launchd job + stray main.py for this repo
 #   ./start.sh status             # show PID / log if alive
 #   ./start.sh --help             # → main.py --help
@@ -9,7 +9,8 @@
 #
 # Extra args are appended to main.py on background start, e.g. ./start.sh --no-chrome
 #
-# Env: FINGERSNAP_REQUIRE_HAND (default 1), FINGERSNAP_CAMERA_INDEX, FINGERSNAP_RESTART_DELAY,
+# Env: FINGERSNAP_REQUIRE_HAND (default 1), FINGERSNAP_HAND_GESTURE (default 1; set 0 to omit --hand-gesture),
+#      FINGERSNAP_CAMERA_INDEX, FINGERSNAP_RESTART_DELAY,
 #      FINGERSNAP_LOG_MAX_MB (default 8, rotate fingersnap.log → fingersnap.log.1)
 #
 set -euo pipefail
@@ -109,6 +110,9 @@ touch "$LogFile"
 Args=(--supervise)
 if [[ "${FINGERSNAP_REQUIRE_HAND:-1}" == "1" ]]; then
 	Args+=(--require-hand)
+fi
+if [[ "${FINGERSNAP_HAND_GESTURE:-1}" == "1" ]]; then
+	Args+=(--hand-gesture)
 fi
 if [[ -n "${FINGERSNAP_CAMERA_INDEX:-}" ]]; then
 	Args+=(--camera-index "$FINGERSNAP_CAMERA_INDEX")

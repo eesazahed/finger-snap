@@ -3,8 +3,9 @@
 finger-snap entry point (macOS).
 
 **Default command (no ``hand-test`` prefix):** double finger-snap listener — mic,
-optional ``--require-hand`` webcam gate (MediaPipe presence). Confirmed snaps print
-to stdout (no macOS banners). See ``MainListen``.
+optional ``--require-hand`` webcam gate (MediaPipe presence), optional ``--hand-gesture``
+fist/open → Mission Control (⌃↑) or synthetic F3 on the **same** camera thread.
+Confirmed snaps print to stdout (no macOS banners). See ``MainListen``.
 
 **Hand test:** ``python main.py hand-test`` — webcam hand echo to stdout
 (formerly ``HandRaiseNotifyTest.py``). Same ``pip install mediapipe opencv-python-headless``
@@ -14,6 +15,8 @@ for camera features; model caches under ``.cache/``.
 from __future__ import annotations
 
 import argparse
+import ctypes
+import math
 import os
 import subprocess
 import sys
@@ -23,7 +26,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal, Optional
+from typing import Callable, List, Literal, Optional, Tuple
 
 import numpy as np
 import sounddevice as sd
@@ -57,6 +60,360 @@ def EnsureHandLandmarkerModel(CacheDir: Path) -> Optional[Path]:
     if not Dest.is_file() or Dest.stat().st_size < MinBytes:
         return None
     return Dest
+
+
+def DistNormLm(Lm, Ia: int, Ib: int) -> float:
+    Ax, Ay = float(Lm[Ia].x), float(Lm[Ia].y)
+    Bx, By = float(Lm[Ib].x), float(Lm[Ib].y)
+    return math.hypot(Ax - Bx, Ay - By)
+
+
+def IsFingerExtendedLm(Lm, TipIdx: int, PipIdx: int, ExtendedRatio: float) -> bool:
+    Wrist = 0
+    DTip = DistNormLm(Lm, Wrist, TipIdx)
+    DPip = DistNormLm(Lm, Wrist, PipIdx)
+    if DPip < 1e-6:
+        return DTip > 1e-6
+    return DTip > DPip * ExtendedRatio
+
+
+def CountExtendedFingersLm(Lm, ExtendedRatio: float) -> int:
+    Pairs: List[Tuple[int, int]] = [(8, 6), (12, 10), (16, 14), (20, 18)]
+    N = 0
+    for TipIdx, PipIdx in Pairs:
+        if IsFingerExtendedLm(Lm, TipIdx, PipIdx, ExtendedRatio):
+            N += 1
+    return N
+
+
+def ClassifyRawPoseLm(
+    Lm,
+    ExtendedRatio: float,
+    OpenMinExtended: int,
+    FistMaxExtended: int,
+) -> str:
+    N = CountExtendedFingersLm(Lm, ExtendedRatio)
+    if N >= OpenMinExtended:
+        return "open"
+    if N <= FistMaxExtended:
+        return "fist"
+    return "ambiguous"
+
+
+F3VirtualKeyCode = 99
+
+
+def MacOsAccessibilityTrusted() -> bool:
+    try:
+        Lib = ctypes.CDLL(
+            "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
+        )
+        Fn = Lib.AXIsProcessTrusted
+        Fn.argtypes = []
+        Fn.restype = ctypes.c_bool
+        return bool(Fn())
+    except OSError:
+        return True
+
+
+def QuartzF3Available() -> bool:
+    try:
+        from Quartz import CGEventCreateKeyboardEvent  # noqa: F401
+        from Quartz import CGEventPost  # noqa: F401
+        from Quartz import kCGHIDEventTap  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def CgEventTimestampNow() -> int:
+    try:
+        Libc = ctypes.CDLL("/usr/lib/libc.dylib")
+        Fn = getattr(Libc, "clock_gettime_nsec_np", None)
+        if Fn is None:
+            return time.monotonic_ns()
+        CLOCK_UPTIME_RAW = 8
+        Fn.argtypes = [ctypes.c_int]
+        Fn.restype = ctypes.c_uint64
+        return int(Fn(CLOCK_UPTIME_RAW))
+    except (OSError, AttributeError, TypeError):
+        return time.monotonic_ns()
+
+
+def FrontmostApplicationPid() -> Optional[int]:
+    try:
+        from AppKit import NSWorkspace
+    except ImportError:
+        return None
+    App = NSWorkspace.sharedWorkspace().frontmostApplication()
+    if App is None:
+        return None
+    return int(App.processIdentifier())
+
+
+def FrontmostApplicationLabel() -> str:
+    try:
+        from AppKit import NSWorkspace
+    except ImportError:
+        return "(AppKit unavailable)"
+    App = NSWorkspace.sharedWorkspace().frontmostApplication()
+    if App is None:
+        return "(none)"
+    Pid = int(App.processIdentifier())
+    Name = App.localizedName() or App.bundleIdentifier() or "unknown"
+    return f"{Name} (pid {Pid})"
+
+
+def SendF3MacOsQuartz(PulseSeconds: float, Target: str) -> None:
+    try:
+        from Quartz import (
+            CGEventCreateKeyboardEvent,
+            CGEventPost,
+            CGEventPostToPid,
+            CGEventSetTimestamp,
+            CGEventSourceCreate,
+            kCGAnnotatedSessionEventTap,
+            kCGEventSourceStateHIDSystemState,
+            kCGHIDEventTap,
+            kCGSessionEventTap,
+        )
+    except ImportError as Exc:
+        print(f"Quartz import failed: {Exc}", file=sys.stderr)
+        return
+    TapByName = {
+        "hid": kCGHIDEventTap,
+        "session": kCGSessionEventTap,
+        "annotated": kCGAnnotatedSessionEventTap,
+    }
+    try:
+        Src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState)
+    except Exception:
+        Src = None
+
+    def PostDownUpToTap(TapLoc: int) -> None:
+        DownEv = CGEventCreateKeyboardEvent(Src, F3VirtualKeyCode, True)
+        if DownEv is None:
+            print("Quartz: could not create F3 key-down.", file=sys.stderr)
+            return
+        CGEventSetTimestamp(DownEv, CgEventTimestampNow())
+        CGEventPost(TapLoc, DownEv)
+        if PulseSeconds > 0:
+            time.sleep(PulseSeconds)
+        UpEv = CGEventCreateKeyboardEvent(Src, F3VirtualKeyCode, False)
+        if UpEv is None:
+            print("Quartz: could not create F3 key-up.", file=sys.stderr)
+            return
+        CGEventSetTimestamp(UpEv, CgEventTimestampNow())
+        CGEventPost(TapLoc, UpEv)
+
+    def PostDownUpToPid(Pid: int) -> None:
+        DownEv = CGEventCreateKeyboardEvent(Src, F3VirtualKeyCode, True)
+        if DownEv is None:
+            print("Quartz: could not create F3 key-down.", file=sys.stderr)
+            return
+        CGEventSetTimestamp(DownEv, CgEventTimestampNow())
+        CGEventPostToPid(Pid, DownEv)
+        if PulseSeconds > 0:
+            time.sleep(PulseSeconds)
+        UpEv = CGEventCreateKeyboardEvent(Src, F3VirtualKeyCode, False)
+        if UpEv is None:
+            print("Quartz: could not create F3 key-up.", file=sys.stderr)
+            return
+        CGEventSetTimestamp(UpEv, CgEventTimestampNow())
+        CGEventPostToPid(Pid, UpEv)
+
+    try:
+        if Target == "frontmost":
+            Pid = FrontmostApplicationPid()
+            if Pid is None:
+                print(
+                    "Quartz: no frontmost app; posting F3 to hid tap instead.",
+                    file=sys.stderr,
+                )
+                PostDownUpToTap(kCGHIDEventTap)
+                return
+            PostDownUpToPid(Pid)
+            return
+        TapLoc = TapByName.get(Target, kCGHIDEventTap)
+        PostDownUpToTap(TapLoc)
+    except Exception as Exc:
+        print(f"Quartz F3 post failed: {Exc}", file=sys.stderr)
+
+
+def SendF3MacOsAppleScript() -> None:
+    Script = 'tell application "System Events" to key code 99'
+    try:
+        R = subprocess.run(
+            ["osascript", "-e", Script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if R.returncode != 0:
+            Msg = (R.stderr or R.stdout or "").strip()
+            print(f"osascript F3 failed ({R.returncode}): {Msg}", file=sys.stderr)
+    except OSError as Exc:
+        print(f"osascript failed: {Exc}", file=sys.stderr)
+
+
+def SendMissionControlViaAppleScript() -> None:
+    Script = 'tell application "System Events" to key code 126 using control down'
+    try:
+        R = subprocess.run(
+            ["osascript", "-e", Script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if R.returncode != 0:
+            Msg = (R.stderr or R.stdout or "").strip()
+            print(
+                f"osascript Mission Control (⌃↑) failed ({R.returncode}): {Msg}",
+                file=sys.stderr,
+            )
+    except OSError as Exc:
+        print(f"osascript failed: {Exc}", file=sys.stderr)
+
+
+def ResolveF3Emitter(
+    Backend: str,
+    PulseSeconds: float,
+    Target: str,
+) -> Tuple[Callable[[], None], str]:
+    if Backend == "quartz":
+        if not QuartzF3Available():
+            print(
+                "gesture F3 backend quartz requires: pip install pyobjc-framework-Quartz",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return (
+            lambda: SendF3MacOsQuartz(PulseSeconds, Target),
+            f"Quartz+F3 ({Target})",
+        )
+    if Backend == "applescript":
+        return (SendF3MacOsAppleScript, "AppleScript F3")
+    if QuartzF3Available():
+        return (
+            lambda: SendF3MacOsQuartz(PulseSeconds, Target),
+            f"Quartz+F3 ({Target})",
+        )
+    print(
+        "gesture F3: Quartz not installed — using AppleScript. "
+        "For HID F3: pip install pyobjc-framework-Quartz",
+        file=sys.stderr,
+    )
+    return (SendF3MacOsAppleScript, "AppleScript F3 (fallback)")
+
+
+@dataclass
+class HandGestureMissionConfig:
+    StableFrames: int
+    ExtendedRatio: float
+    OpenMinExtended: int
+    FistMaxExtended: int
+    CooldownSec: float
+    HandSide: str
+
+
+class HandMissionGestureRuntime:
+    """Fist → open / open → fist state machine; calls EmitFn on transitions."""
+
+    def __init__(
+        self,
+        Config: HandGestureMissionConfig,
+        EmitFn: Callable[[], None],
+        DryRun: bool,
+    ) -> None:
+        self.Config = Config
+        self.EmitFn = EmitFn
+        self.DryRun = DryRun
+        self.LastFireT = 0.0
+        self.F3On = False
+        self.StablePose: Optional[str] = None
+        self.CandidatePose = ""
+        self.CandidateCount = 0
+
+    def ProcessLandmarkerResult(self, Result, Now: float) -> None:
+        Cfg = self.Config
+        ChosenIdx: Optional[int] = None
+        N = len(Result.hand_landmarks)
+        if N > 0:
+            if Cfg.HandSide == "any":
+                ChosenIdx = 0
+            else:
+                Want = Cfg.HandSide
+                for I, Cats in enumerate(Result.handedness):
+                    if not Cats:
+                        continue
+                    Name = Cats[0].category_name
+                    if Name and Name.lower() == Want:
+                        ChosenIdx = I
+                        break
+                if ChosenIdx is None:
+                    ChosenIdx = 0
+
+        if ChosenIdx is not None:
+            Lm = Result.hand_landmarks[ChosenIdx]
+            Raw = ClassifyRawPoseLm(
+                Lm,
+                Cfg.ExtendedRatio,
+                Cfg.OpenMinExtended,
+                Cfg.FistMaxExtended,
+            )
+            if Raw != "ambiguous":
+                if Raw == self.CandidatePose:
+                    self.CandidateCount += 1
+                else:
+                    self.CandidatePose = Raw
+                    self.CandidateCount = 1
+
+                if self.CandidateCount >= Cfg.StableFrames:
+                    OldStable = self.StablePose
+                    NewStable = self.CandidatePose
+                    if NewStable != OldStable:
+                        WouldFire = (
+                            OldStable == "fist"
+                            and NewStable == "open"
+                            and not self.F3On
+                        ) or (
+                            OldStable == "open"
+                            and NewStable == "fist"
+                            and self.F3On
+                        )
+                        CoolOk = (Now - self.LastFireT) >= Cfg.CooldownSec
+                        if WouldFire and not CoolOk:
+                            pass
+                        else:
+                            self.StablePose = NewStable
+                            if WouldFire and CoolOk:
+                                Fired = False
+                                if (
+                                    OldStable == "fist"
+                                    and NewStable == "open"
+                                    and not self.F3On
+                                ):
+                                    self.F3On = True
+                                    Fired = True
+                                    print("F3_ON", flush=True)
+                                    if not self.DryRun:
+                                        self.EmitFn()
+                                elif (
+                                    OldStable == "open"
+                                    and NewStable == "fist"
+                                    and self.F3On
+                                ):
+                                    self.F3On = False
+                                    Fired = True
+                                    print("F3_OFF", flush=True)
+                                    if not self.DryRun:
+                                        self.EmitFn()
+                                if Fired:
+                                    self.LastFireT = Now
+                    self.CandidateCount = 0
+        else:
+            self.CandidateCount = 0
+            self.CandidatePose = ""
 
 
 def EchoHandEvent(Title: str, Body: str) -> None:
@@ -97,7 +454,6 @@ class ListenerConfig:
     ListenCooldownAfterTriggerSeconds: float = 1.0
     StartupSoundFilename: str = "assets/audio/startupsong.wav"
     ChromeAppName: str = "Google Chrome"
-    # macOS app name; use "Visual Studio Code - Insiders" for Insiders.
     VsCodeAppName: str = "Visual Studio Code"
     HighFreqCutoffHz: float = 3_000.0
     MinHighFreqEnergyRatio: float = 0.34
@@ -163,7 +519,8 @@ def ComputeSpectralMetrics(Block: np.ndarray, Config: ListenerConfig) -> Spectra
     HighBand = float(np.sum(Power[Freqs >= Config.HighBandLowHz]))
     HighToLowMidRatio = HighBand / LowMid
     if Config.AntiClapVeryHighCutoffHz > 0.0:
-        Vhf = float(np.sum(Power[Freqs >= Config.AntiClapVeryHighCutoffHz])) / Total
+        Vhf = float(
+            np.sum(Power[Freqs >= Config.AntiClapVeryHighCutoffHz])) / Total
     else:
         Vhf = 1.0
     Boom = float(
@@ -254,7 +611,8 @@ class DoubleSnapDetector:
                         self._OnHandGateRejected()
                     return False
                 self._ResetEpisode()
-                self._PostTriggerCooldownUntil = Now + self._Config.ListenCooldownAfterTriggerSeconds
+                self._PostTriggerCooldownUntil = Now + \
+                    self._Config.ListenCooldownAfterTriggerSeconds
                 self._CooldownUntil = Now + self._Config.CooldownSeconds
                 return True
 
@@ -336,7 +694,8 @@ def PlayStartupSound(WavPath: Path) -> None:
     if not WavPath.is_file():
         if not getattr(PlayStartupSound, "_MissingLogged", False):
             setattr(PlayStartupSound, "_MissingLogged", True)
-            print(f"Startup sound missing (skipped): {WavPath}", file=sys.stderr)
+            print(
+                f"Startup sound missing (skipped): {WavPath}", file=sys.stderr)
         return
     try:
         subprocess.Popen(
@@ -368,6 +727,7 @@ class HandPresenceTracker:
 def StartHandPresencePipeline(
     ScriptDir: Path,
     CameraIndex: int,
+    MissionRuntime: Optional[HandMissionGestureRuntime] = None,
 ) -> tuple[HandPresenceTracker, threading.Event, threading.Thread]:
     """Opens the camera and runs MediaPipe Hand Landmarker in a background thread."""
     try:
@@ -389,7 +749,8 @@ def StartHandPresencePipeline(
         raise SystemExit(1)
 
     Options = MpHandLandmarker.HandLandmarkerOptions(
-        base_options=MpBaseOptions.BaseOptions(model_asset_path=str(ModelPath)),
+        base_options=MpBaseOptions.BaseOptions(
+            model_asset_path=str(ModelPath)),
         running_mode=MpVisionMode.VisionTaskRunningMode.VIDEO,
         num_hands=2,
         min_hand_detection_confidence=0.55,
@@ -423,17 +784,23 @@ def StartHandPresencePipeline(
                 Result = Landmarker.detect_for_video(MpFrame, VideoTsMs)
                 NumHands = len(Result.hand_landmarks)
                 Tracker.Set(NumHands > 0)
+                if MissionRuntime is not None:
+                    MissionRuntime.ProcessLandmarkerResult(
+                        Result, time.monotonic()
+                    )
         finally:
             Cap.release()
             Landmarker.close()
 
-    Thread = threading.Thread(target=RunHandLoop, name="HandPresence", daemon=False)
+    Thread = threading.Thread(
+        target=RunHandLoop, name="HandPresence", daemon=False)
     Thread.start()
     return Tracker, StopEvent, Thread
 
 
 def MainListen() -> None:
-    Parser = argparse.ArgumentParser(description="Detect double finger snaps from the mic.")
+    Parser = argparse.ArgumentParser(
+        description="Detect double finger snaps from the mic.")
     Parser.add_argument(
         "--chrome-url",
         default=None,
@@ -485,7 +852,83 @@ def MainListen() -> None:
         type=int,
         default=0,
         metavar="N",
-        help="Camera device index when using --require-hand (default: 0).",
+        help="Camera index for --require-hand and/or --hand-gesture (default: 0).",
+    )
+    Parser.add_argument(
+        "--hand-gesture",
+        action="store_true",
+        help=(
+            "Fist → open palm / open → fist toggles Mission Control or F3 (same camera thread "
+            "as --require-hand). See --gesture-* options."
+        ),
+    )
+    Parser.add_argument(
+        "--gesture-invoke",
+        choices=("mission-control", "f3"),
+        default="mission-control",
+        help="mission-control: AppleScript ⌃↑. f3: --gesture-f3-* (Quartz preferred).",
+    )
+    Parser.add_argument(
+        "--gesture-stable-frames",
+        type=int,
+        default=8,
+        help="Frames to confirm fist/open pose. Default: 8.",
+    )
+    Parser.add_argument(
+        "--gesture-extended-ratio",
+        type=float,
+        default=1.04,
+        metavar="RATIO",
+        help="Tip–wrist vs PIP–wrist ratio for extended finger. Default: 1.04.",
+    )
+    Parser.add_argument(
+        "--gesture-open-min",
+        type=int,
+        default=4,
+        help="Min extended fingers (of 4) for open palm. Default: 4.",
+    )
+    Parser.add_argument(
+        "--gesture-fist-max",
+        type=int,
+        default=1,
+        help="Max extended fingers for fist. Default: 1.",
+    )
+    Parser.add_argument(
+        "--gesture-cooldown",
+        type=float,
+        default=1.2,
+        metavar="SEC",
+        help="Seconds between gesture actions. Default: 1.2.",
+    )
+    Parser.add_argument(
+        "--gesture-hand",
+        choices=("any", "left", "right"),
+        default="any",
+        help="Which hand to track (MediaPipe handedness). Default: any.",
+    )
+    Parser.add_argument(
+        "--gesture-dry-run",
+        action="store_true",
+        help="Print F3_ON / F3_OFF only; do not run Mission Control or F3.",
+    )
+    Parser.add_argument(
+        "--gesture-f3-backend",
+        choices=("auto", "quartz", "applescript"),
+        default="auto",
+        help="With --gesture-invoke f3: Quartz or AppleScript key code 99.",
+    )
+    Parser.add_argument(
+        "--gesture-f3-pulse-sec",
+        type=float,
+        default=0.02,
+        metavar="SEC",
+        help="Quartz F3: hold between down/up. Default: 0.02.",
+    )
+    Parser.add_argument(
+        "--gesture-f3-target",
+        choices=("hid", "session", "annotated", "frontmost"),
+        default="hid",
+        help="Quartz F3 event tap (hid default) or frontmost PID.",
     )
     Parser.add_argument(
         "--supervise",
@@ -496,6 +939,58 @@ def MainListen() -> None:
         ),
     )
     Args = Parser.parse_args()
+    if Args.hand_gesture:
+        if Args.gesture_stable_frames < 1:
+            print("--gesture-stable-frames must be >= 1.", file=sys.stderr)
+            sys.exit(1)
+        if Args.gesture_open_min < 1 or Args.gesture_open_min > 4:
+            print("--gesture-open-min must be 1..4.", file=sys.stderr)
+            sys.exit(1)
+        if Args.gesture_fist_max < 0 or Args.gesture_fist_max > 3:
+            print("--gesture-fist-max must be 0..3.", file=sys.stderr)
+            sys.exit(1)
+        if Args.gesture_fist_max >= Args.gesture_open_min:
+            print("--gesture-fist-max must be < --gesture-open-min.", file=sys.stderr)
+            sys.exit(1)
+        if Args.gesture_f3_pulse_sec < 0:
+            print("--gesture-f3-pulse-sec must be >= 0.", file=sys.stderr)
+            sys.exit(1)
+
+    GestureEmit: Optional[Callable[[], None]] = None
+    GestureEmitLabel = ""
+    if Args.hand_gesture:
+        if Args.gesture_invoke == "mission-control":
+            GestureEmit = SendMissionControlViaAppleScript
+            GestureEmitLabel = "AppleScript (⌃↑ Mission Control)"
+        else:
+            GestureEmit, GestureEmitLabel = ResolveF3Emitter(
+                Args.gesture_f3_backend,
+                Args.gesture_f3_pulse_sec,
+                Args.gesture_f3_target,
+            )
+        if not Args.gesture_dry_run:
+            if not MacOsAccessibilityTrusted():
+                print(
+                    "Accessibility is OFF — macOS will ignore gesture shortcuts. "
+                    "System Settings → Privacy & Security → Accessibility → enable the "
+                    "app running Python. Remove and re-add the entry if needed.",
+                    file=sys.stderr,
+                )
+            UsesQuartzGesture = Args.gesture_invoke == "f3" and (
+                (Args.gesture_f3_backend == "quartz")
+                or (
+                    Args.gesture_f3_backend == "auto"
+                    and QuartzF3Available()
+                )
+            )
+            if UsesQuartzGesture and Args.gesture_f3_target == "frontmost":
+                print(
+                    "gesture F3 → frontmost only: "
+                    + FrontmostApplicationLabel()
+                    + ". For Mission Control use --gesture-f3-target hid.",
+                    file=sys.stderr,
+                )
+
     Config = ListenerConfig()
     if Args.disable_very_high_snap_gate:
         Config.AntiClapVeryHighCutoffHz = 0.0
@@ -516,17 +1011,34 @@ def MainListen() -> None:
         HandThread: Optional[threading.Thread] = None
         HandPresentFn: Optional[Callable[[], bool]] = None
         OnHandGateRejected: Optional[Callable[[], None]] = None
-        if Args.require_hand:
-            Tracker, HandStop, HandThread = StartHandPresencePipeline(
-                ScriptDir, Args.camera_index
-            )
-            HandPresentFn = Tracker.IsPresent
-
-            def OnHandGateRejected() -> None:
-                print(
-                    "Double snap ignored: no hand visible in the camera.",
-                    file=sys.stderr,
+        NeedCamera = Args.require_hand or Args.hand_gesture
+        if NeedCamera:
+            MissionRt: Optional[HandMissionGestureRuntime] = None
+            if Args.hand_gesture and GestureEmit is not None:
+                Gcfg = HandGestureMissionConfig(
+                    StableFrames=Args.gesture_stable_frames,
+                    ExtendedRatio=Args.gesture_extended_ratio,
+                    OpenMinExtended=Args.gesture_open_min,
+                    FistMaxExtended=Args.gesture_fist_max,
+                    CooldownSec=Args.gesture_cooldown,
+                    HandSide=Args.gesture_hand,
                 )
+                MissionRt = HandMissionGestureRuntime(
+                    Gcfg,
+                    GestureEmit,
+                    Args.gesture_dry_run,
+                )
+            Tracker, HandStop, HandThread = StartHandPresencePipeline(
+                ScriptDir, Args.camera_index, MissionRuntime=MissionRt
+            )
+            if Args.require_hand:
+                HandPresentFn = Tracker.IsPresent
+
+                def OnHandGateRejected() -> None:
+                    print(
+                        "Double snap ignored: no hand visible in the camera.",
+                        file=sys.stderr,
+                    )
 
         Detector = DoubleSnapDetector(
             Config,
@@ -583,6 +1095,11 @@ def MainListen() -> None:
                     Msg += " (spectral anti-clap: boom + HF.)"
                 if Args.require_hand:
                     Msg += " (hand must be visible when the second snap window closes.)"
+                if Args.hand_gesture:
+                    Msg += (
+                        f" Hand gesture: {GestureEmitLabel}"
+                        + (" (dry-run)." if Args.gesture_dry_run else ".")
+                    )
                 if Args.supervise:
                     Msg += f" (supervise: {RestartDelaySec}s between session restarts.)"
                 print(Msg, file=sys.stderr)
@@ -672,7 +1189,8 @@ def MainHandTest() -> None:
     )
     Args = Parser.parse_args()
     if Args.mode == "raised" and Args.clear_y <= Args.raise_y:
-        print("--clear-y must be greater than --raise-y (y grows downward).", file=sys.stderr)
+        print(
+            "--clear-y must be greater than --raise-y (y grows downward).", file=sys.stderr)
         sys.exit(2)
 
     try:
@@ -691,7 +1209,8 @@ def MainHandTest() -> None:
         sys.exit(1)
 
     Options = MpHandLandmarker.HandLandmarkerOptions(
-        base_options=MpBaseOptions.BaseOptions(model_asset_path=str(ModelPath)),
+        base_options=MpBaseOptions.BaseOptions(
+            model_asset_path=str(ModelPath)),
         running_mode=MpVisionMode.VisionTaskRunningMode.VIDEO,
         num_hands=2,
         min_hand_detection_confidence=0.55,
@@ -701,7 +1220,8 @@ def MainHandTest() -> None:
     Landmarker = MpHandLandmarker.HandLandmarker.create_from_options(Options)
     Cap = cv2.VideoCapture(Args.camera_index)
     if not Cap.isOpened():
-        print(f"Could not open camera index {Args.camera_index}.", file=sys.stderr)
+        print(
+            f"Could not open camera index {Args.camera_index}.", file=sys.stderr)
         Landmarker.close()
         sys.exit(1)
     Cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -752,7 +1272,8 @@ def MainHandTest() -> None:
             elif State == "raised" and Armed:
                 Now = time.perf_counter()
                 if Now - LastNotifyT >= Args.min_interval:
-                    EchoHandEvent(Args.notification_title, Args.notification_body)
+                    EchoHandEvent(Args.notification_title,
+                                  Args.notification_body)
                     LastNotifyT = Now
                     Armed = False
 

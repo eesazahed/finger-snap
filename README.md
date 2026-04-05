@@ -6,7 +6,7 @@ macOS microphone listener that detects **exactly two finger snaps** (a third sna
 
 ```
 finger-snap/
-├── main.py                  # snap listener (default) + hand-test subcommand
+├── main.py                  # snap listener + optional --hand-gesture (Mission Control / F3) + hand-test
 ├── index.html
 ├── requirements.txt
 ├── install.sh
@@ -28,7 +28,7 @@ finger-snap/
 
 ## Setup
 
-**Quick install (recommended):** from the repo root, run **`./install.sh`**. It creates **`.venv`**, installs **`requirements.txt`**, then **`mediapipe`** and **`opencv-python-headless`** (needed for **`--require-hand`**, **`start.sh`** defaults, and **`main.py hand-test`**). Mic-only: **`FINGERSNAP_SKIP_HAND_DEPS=1 ./install.sh`**.
+**Quick install (recommended):** from the repo root, run **`./install.sh`**. It creates **`.venv`**, installs **`requirements.txt`**, then **`mediapipe`**, **`opencv-python-headless`**, and **`pyobjc-framework-Quartz`** (camera + optional **F3** HID in **`main.py --hand-gesture`**). Mic-only: **`FINGERSNAP_SKIP_HAND_DEPS=1 ./install.sh`**.
 
 Manual equivalent:
 
@@ -37,7 +37,7 @@ cd finger-snap
 python3 -m venv .venv
 ./.venv/bin/pip install -U pip
 ./.venv/bin/pip install -r requirements.txt
-./.venv/bin/pip install mediapipe opencv-python-headless   # omit if mic-only
+./.venv/bin/pip install mediapipe opencv-python-headless pyobjc-framework-Quartz   # omit if mic-only
 ```
 
 Default startup sound: **`assets/audio/startupsong.wav`**. Override with `--startup-wav` or disable with `--no-startup-sound`.
@@ -49,6 +49,8 @@ Default startup sound: **`assets/audio/startupsong.wav`**. Override with `--star
 ```
 
 **Snaps + visible hand:** install **`mediapipe`** and **`opencv-python-headless`** in the venv (same as the hand test below), allow **Camera**, then run with **`--require-hand`**. The listener still needs two valid snaps; when the post-second-snap window closes, MediaPipe must see at least one hand in frame (**presence** mode). If not, the gesture is discarded (stderr: *no hand visible*) and you can snap again. Use **`--camera-index N`** if the wrong device opens.
+
+**Fist / palm → Mission Control:** same camera thread — **`--hand-gesture`** (default **`--gesture-invoke mission-control`**, AppleScript ⌃↑). Optional **`--gesture-invoke f3`** and **`--gesture-f3-*`**. Mic-only without camera: omit **`--require-hand`** and **`--hand-gesture`**. **`./start.sh`** adds **`--hand-gesture`** by default; disable with **`FINGERSNAP_HAND_GESTURE=0 ./start.sh`**.
 
 **Hand-in-frame test (webcam → stdout echo):** after the venv setup above, run `./.venv/bin/pip install mediapipe opencv-python-headless` (never plain `pip install` on Homebrew Python—it errors with **externally-managed-environment** / PEP 668). Default: **headless** (no camera window)—`./.venv/bin/python main.py hand-test` prints a timestamped line when a hand appears, re-arms when it leaves. **`--preview`** draws the feed with guide lines; **`--mode raised`** uses the upper-band wrist rule instead of any hand in frame.
 
@@ -66,11 +68,11 @@ One script replaces separate **`stop.sh`** / **`RunFingerSnapAgent.sh`** / **`la
 
 | Command | Action |
 |--------|--------|
-| **`./start.sh`** | **`launchctl bootout`** any old **`com.eesa.fingersnap`** job, kill PID in **`.finger-snap.pid`**, kill stray **`main.py`** for this repo, rotate **`fingersnap.log`** if over **`FINGERSNAP_LOG_MAX_MB`** (default 8), then **`nohup`** **`main.py --supervise`** and optional **`--require-hand`**. |
+| **`./start.sh`** | **`launchctl bootout`** any old **`com.eesa.fingersnap`** job, kill PID in **`.finger-snap.pid`**, kill stray **`main.py`** for this repo, rotate **`fingersnap.log`** if over **`FINGERSNAP_LOG_MAX_MB`** (default 8), then **`nohup`** **`main.py --supervise`**, **`--require-hand`** (unless **`FINGERSNAP_REQUIRE_HAND=0`**), **`--hand-gesture`** (unless **`FINGERSNAP_HAND_GESTURE=0`**). |
 | **`./start.sh stop`** | Same shutdown (no new process). |
 | **`./start.sh status`** | Print PID and log path if the saved PID is alive. |
 
-Logs append to **`fingersnap.log`** in the repo (and **`fingersnap.log.1`** after rotation). **`FINGERSNAP_REQUIRE_HAND=0`**, **`FINGERSNAP_CAMERA_INDEX`**, **`FINGERSNAP_RESTART_DELAY`** behave like before. Extra args go to **`main.py`**, e.g. **`./start.sh --no-chrome`**.
+Logs append to **`fingersnap.log`** in the repo (and **`fingersnap.log.1`** after rotation). **`FINGERSNAP_REQUIRE_HAND=0`**, **`FINGERSNAP_HAND_GESTURE=0`** (omit fist/Mission Control gesture), **`FINGERSNAP_CAMERA_INDEX`**, **`FINGERSNAP_RESTART_DELAY`** behave like before. Extra args go to **`main.py`**, e.g. **`./start.sh --no-chrome`**.
 
 Foreground helpers: **`./start.sh --help`**, **`./start.sh hand-test --preview`**.
 

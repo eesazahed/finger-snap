@@ -2,6 +2,7 @@
 
 ## 2026-04-04
 
+- **2026-04-04 — hand gestures / `start.sh`:** **`SwipeUpGestureTest.py`** removed → **`main.py --hand-gesture`**. **`FINGERSNAP_HAND_GESTURE`** default **1** (**`--hand-gesture`**); **`0`** disables. **`README.md`**, **`install.sh`**.
 - **2026-04-04 — `main.py`:** **`OpenVisualStudioCode`** on double snap (repo folder); **`ListenerConfig.VsCodeAppName`**; **`--no-vscode`**.
 - **2026-04-04 — single `start.sh`:** **`nohup`** + **`.finger-snap.pid`** + **`fingersnap.log`** / rotation; subcommands **`stop`**, **`status`**; **`hand-test`** / **`--help`** **`exec`**; **`bootout`** legacy **`com.eesa.fingersnap`**. Removed **`stop.sh`**, **`RunFingerSnapAgent.sh`**, **`launchd`** plist generation. **`README.md`**, **`.gitignore`**, **`install.sh`** updated.
 - **2026-04-04 — no macOS notifications:** removed **`SendMacNotification`**, **`osascript`**, **`--no-notify`**, **`--macos-notify`**; double snap logs **stdout** only; **`hand-test`** echo only. **`README.md`** updated.
