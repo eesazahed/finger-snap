@@ -22,6 +22,7 @@ build/
 *.swo
 
 *.log
+.finger-snap.pid
 
 # MediaPipe hand model (main.py hand-test / --require-hand)
 .cache/

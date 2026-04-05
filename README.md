@@ -1,6 +1,6 @@
 # finger-snap
 
-macOS microphone listener that detects **exactly two finger snaps** (a third snap cancels the gesture), then plays a startup sound, optionally opens your **default browser** (or a chosen app) to the dashboard URL, and prints **Double snap detected.** to stdout. Includes a small dashboard (`index.html` + `assets/`) and shell helpers to run under `launchd`.
+macOS microphone listener that detects **exactly two finger snaps** (a third snap cancels the gesture), then plays a startup sound, optionally opens your **default browser** (or a chosen app) to the dashboard URL, and prints **Double snap detected.** to stdout. Includes a small dashboard (`index.html` + `assets/`) and **`./start.sh`** to run the listener in the background (**`nohup`**).
 
 ## Repository layout
 
@@ -10,8 +10,7 @@ finger-snap/
 ├── index.html
 ├── requirements.txt
 ├── install.sh
-├── RunFingerSnapAgent.sh   # launchd: restart loop around main.py
-├── start.sh / stop.sh
+├── start.sh                 # background listener + stop/status subcommands
 ├── assets/
 │   ├── audio/startupsong.wav   # default chime for double snap
 │   ├── css/styles.css
@@ -53,21 +52,29 @@ Default startup sound: **`assets/audio/startupsong.wav`**. Override with `--star
 
 **Hand-in-frame test (webcam → stdout echo):** after the venv setup above, run `./.venv/bin/pip install mediapipe opencv-python-headless` (never plain `pip install` on Homebrew Python—it errors with **externally-managed-environment** / PEP 668). Default: **headless** (no camera window)—`./.venv/bin/python main.py hand-test` prints a timestamped line when a hand appears, re-arms when it leaves. **`--preview`** draws the feed with guide lines; **`--mode raised`** uses the upper-band wrist rule instead of any hand in frame.
 
-By default **`open <url>`** runs with **no `-a`**, so **System Settings → Desktop & Dock → Default web browser** decides which app opens this repo’s **`index.html`** (**`file://`** next to **`main.py`**). Use **`--browser-app Safari`** (or **Firefox**, **Google Chrome**, **Brave Browser**, etc.) to force one app. For **`launchd`**, set **`FINGERSNAP_BROWSER_APP`** in the environment or extend the plist **`ProgramArguments`**. New tab vs new window is controlled by that browser; for a dedicated window, try Safari or a site-specific app (e.g. Fluid).
+**`main.py`** opens the dashboard with **`open -a "Google Chrome"`** by default (see **`ListenerConfig.ChromeAppName`**). **`./start.sh`** forwards extra arguments to **`main.py`**, e.g. **`./start.sh --no-chrome`**. New tab vs new window depends on Chrome; for another browser you’d extend **`main.py`** or change **`ChromeAppName`**.
 
-Useful flags: `--no-chrome` (skip opening a browser), `--no-startup-sound`, `--chrome-url` / `--dashboard-url`, `--startup-wav /path/to.wav`.
+Useful flags: `--no-chrome` (skip opening a browser), `--no-startup-sound`, `--chrome-url`, `--startup-wav /path/to.wav`.
 
 Tuning detection and timing: edit **`ListenerConfig`** at the top of **`main.py`**.
 
 **Hand claps vs finger snaps:** By default **spectral anti-clap** compares finger snaps (bright, less low-frequency “boom”) to claps: a **low-frequency band** share (`ClapBoomBandLowHz`–`ClapBoomBandHighHz`, `MaxClapBoomHardRejectRatio`) and a **very-high** band (`AntiClapVeryHighCutoffHz`, `MinVeryHighFreqEnergyRatio`), with a **stricter HF floor** when boom is already elevated (`ClapBoomSoftThreshold`, `MinVeryHighFreqWhenBoomyPresent`). Tune in `ListenerConfig` if your room or mic behaves differently. Disable all of that with **`--disable-very-high-snap-gate`** if real snaps are missed.
 
-## Launch Agent (background)
+## Background listener (`start.sh`)
 
-`start.sh` runs `stop.sh` first (if it exists) so you can restart without a separate stop, installs `~/Library/LaunchAgents/com.eesa.fingersnap.plist` (paths derived from the repo), and runs `launchctl bootstrap`. The plist runs **your venv `python3` → `main.py --supervise …` directly** (not a shell wrapper) so **macOS ties the webcam to that Python process** and the **green camera indicator** in the menu bar works like an interactive run. **`--supervise`** restarts each **listen session inside the same process** after errors or session end, with **`FINGERSNAP_RESTART_DELAY`** (default 5s) between sessions. Sustained PortAudio callback errors still end a session so mic + camera reopen on the next lap. **`ThrottleInterval`** (15s) limits how fast `launchd` respawns if the whole process exits.
+One script replaces separate **`stop.sh`** / **`RunFingerSnapAgent.sh`** / **`launchd`** install:
 
-By default the plist passes **`--require-hand`** (webcam + **mediapipe** / **opencv** in `.venv`); run **`FINGERSNAP_REQUIRE_HAND=0 ./start.sh`** for mic-only. Optional **`FINGERSNAP_CAMERA_INDEX=N`**. `stop.sh` unloads the agent and kills **`main.py`** / optional **`RunFingerSnapAgent.sh`** orphans from this repo path.
+| Command | Action |
+|--------|--------|
+| **`./start.sh`** | **`launchctl bootout`** any old **`com.eesa.fingersnap`** job, kill PID in **`.finger-snap.pid`**, kill stray **`main.py`** for this repo, rotate **`fingersnap.log`** if over **`FINGERSNAP_LOG_MAX_MB`** (default 8), then **`nohup`** **`main.py --supervise`** and optional **`--require-hand`**. |
+| **`./start.sh stop`** | Same shutdown (no new process). |
+| **`./start.sh status`** | Print PID and log path if the saved PID is alive. |
 
-To change the bundle identifier or label, edit `start.sh` / `stop.sh` and the plist `Label` key together.
+Logs append to **`fingersnap.log`** in the repo (and **`fingersnap.log.1`** after rotation). **`FINGERSNAP_REQUIRE_HAND=0`**, **`FINGERSNAP_CAMERA_INDEX`**, **`FINGERSNAP_RESTART_DELAY`** behave like before. Extra args go to **`main.py`**, e.g. **`./start.sh --no-chrome`**.
+
+Foreground helpers: **`./start.sh --help`**, **`./start.sh hand-test --preview`**.
+
+Run **`./start.sh`** from Terminal (or a session with mic/camera access). If you previously used **`launchd`**, **`start.sh`** **bootouts** that label so you do not get two listeners; you may delete **`~/Library/LaunchAgents/com.eesa.fingersnap.plist`** if it is still on disk. To auto-start at login, add your own **LaunchAgent** whose **`ProgramArguments`** run **`/path/to/finger-snap/start.sh`** once (**`RunAtLoad`**, no **`KeepAlive`**, since **`nohup`** detaches the real Python process).
 
 ## Dashboard
 

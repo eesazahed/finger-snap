@@ -29,13 +29,13 @@ echo "Installing requirements.txt (numpy, sounddevice) …"
 "${Pip}" install -r "${Root}/requirements.txt"
 
 if [[ "${FINGERSNAP_SKIP_HAND_DEPS:-0}" == "1" ]]; then
-	echo "Skipping mediapipe / opencv (FINGERSNAP_SKIP_HAND_DEPS=1). Use FINGERSNAP_REQUIRE_HAND=0 ./start.sh if you use launchd."
+	echo "Skipping mediapipe / opencv (FINGERSNAP_SKIP_HAND_DEPS=1). Use FINGERSNAP_REQUIRE_HAND=0 ./start.sh for mic-only."
 else
 	echo "Installing mediapipe + opencv-python-headless (webcam / --require-hand / hand-test) …"
 	"${Pip}" install mediapipe opencv-python-headless
 fi
 
-chmod +x "${Root}/start.sh" "${Root}/stop.sh" "${Root}/RunFingerSnapAgent.sh" 2>/dev/null || true
+chmod +x "${Root}/start.sh" 2>/dev/null || true
 
 echo ""
 echo "Done. Examples:"

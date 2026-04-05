@@ -1,80 +1,121 @@
 #!/usr/bin/env bash
+# One script: stop any previous instance, run main.py in the background (nohup).
+#
+#   ./start.sh                    # background: --supervise [--require-hand]
+#   ./start.sh stop               # kill PID + old launchd job + stray main.py for this repo
+#   ./start.sh status             # show PID / log if alive
+#   ./start.sh --help             # → main.py --help
+#   ./start.sh hand-test …        # foreground: exec main.py hand-test …
+#
+# Extra args are appended to main.py on background start, e.g. ./start.sh --no-chrome
+#
+# Env: FINGERSNAP_REQUIRE_HAND (default 1), FINGERSNAP_CAMERA_INDEX, FINGERSNAP_RESTART_DELAY,
+#      FINGERSNAP_LOG_MAX_MB (default 8, rotate fingersnap.log → fingersnap.log.1)
+#
 set -euo pipefail
 
 Root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-Label="com.eesa.fingersnap"
-PythonExe="${Root}/.venv/bin/python3"
-Listener="${Root}/main.py"
-PlistDest="${HOME}/Library/LaunchAgents/${Label}.plist"
+cd "$Root"
 
-# Double snap + webcam: require a visible hand at confirm (mediapipe + opencv in .venv).
-# Mic-only: FINGERSNAP_REQUIRE_HAND=0 ./start.sh
-RequireHand="${FINGERSNAP_REQUIRE_HAND:-1}"
-ExtraProgramArgs=""
-if [[ "${RequireHand}" == "1" ]]; then
-	ExtraProgramArgs=$'\n\t\t<string>--require-hand</string>'
-fi
-CameraIndex="${FINGERSNAP_CAMERA_INDEX:-}"
-if [[ -n "${CameraIndex}" ]]; then
-	ExtraProgramArgs+=$'\n\t\t<string>--camera-index</string>\n\t\t<string>'"${CameraIndex}"'</string>'
-fi
-# launchd runs Python directly (--supervise) so macOS attributes the camera to this process (green indicator).
-SuperviseArg=$'\n\t\t<string>--supervise</string>'
+Python="${Root}/.venv/bin/python3"
+Main="${Root}/main.py"
+PidFile="${Root}/.finger-snap.pid"
+LogFile="${Root}/fingersnap.log"
+LaunchLabel="com.eesa.fingersnap"
 
-if [[ ! -x "${PythonExe}" ]]; then
-	echo "Missing venv interpreter: ${PythonExe} (create .venv and pip install -r requirements.txt)" >&2
+if [[ ! -x "$Python" ]]; then
+	echo "Missing .venv: ${Python} — run ./install.sh or python3 -m venv .venv && pip install -r requirements.txt" >&2
 	exit 1
 fi
-if [[ ! -f "${Listener}" ]]; then
-	echo "Missing ${Listener}" >&2
+if [[ ! -f "$Main" ]]; then
+	echo "Missing ${Main}" >&2
 	exit 1
 fi
-# Unload LaunchAgent and kill any manual main.py (same as stop.sh) so start is never stacked.
-if [[ -f "${Root}/stop.sh" ]]; then
-	bash "${Root}/stop.sh"
+
+StopLaunchd() {
+	local Uid
+	Uid="$(id -u)"
+	launchctl bootout "gui/${Uid}/${LaunchLabel}" 2>/dev/null || true
+}
+
+StopPidFile() {
+	if [[ ! -f "$PidFile" ]]; then
+		return 0
+	fi
+	local Old
+	Old="$(cat "$PidFile" 2>/dev/null || true)"
+	if [[ -n "$Old" ]] && kill -0 "$Old" 2>/dev/null; then
+		echo "Stopping previous PID ${Old}"
+		kill "$Old" 2>/dev/null || true
+		sleep 1
+		if kill -0 "$Old" 2>/dev/null; then
+			kill -9 "$Old" 2>/dev/null || true
+		fi
+	fi
+	rm -f "$PidFile"
+}
+
+PkillRepoMain() {
+	if pkill -f "${Root}/main\\.py" 2>/dev/null; then
+		echo "Stopped stray ${Main} process(es)."
+		sleep 1
+	fi
+}
+
+case "${1:-}" in
+	stop)
+		StopLaunchd
+		StopPidFile
+		PkillRepoMain
+		echo "Stopped."
+		exit 0
+		;;
+	status)
+		if [[ -f "$PidFile" ]] && kill -0 "$(cat "$PidFile" 2>/dev/null)" 2>/dev/null; then
+			echo "Running PID $(cat "$PidFile") — log: ${LogFile}"
+		else
+			echo "Not running (no valid PID in ${PidFile})"
+		fi
+		exit 0
+		;;
+	-h | --help)
+		exec "$Python" "$Main" --help
+		;;
+	hand-test)
+		exec "$Python" "$Main" "$@"
+		;;
+esac
+
+RotateLogIfLarge() {
+	local MaxMb="${FINGERSNAP_LOG_MAX_MB:-8}"
+	[[ "$MaxMb" =~ ^[0-9]+$ ]] && [[ "$MaxMb" -gt 0 ]] || return 0
+	[[ -f "$LogFile" ]] || return 0
+	local Bytes
+	Bytes="$(stat -f%z "$LogFile" 2>/dev/null || stat -c%s "$LogFile" 2>/dev/null || echo 0)"
+	local Limit=$((MaxMb * 1024 * 1024))
+	if ((Bytes > Limit)); then
+		mv -f "$LogFile" "${LogFile}.1"
+		echo "Rotated log (${Bytes} bytes > ${MaxMb} MiB) -> ${LogFile}.1" >&2
+	fi
+}
+
+StopLaunchd
+StopPidFile
+PkillRepoMain
+
+RotateLogIfLarge
+touch "$LogFile"
+
+Args=(--supervise)
+if [[ "${FINGERSNAP_REQUIRE_HAND:-1}" == "1" ]]; then
+	Args+=(--require-hand)
+fi
+if [[ -n "${FINGERSNAP_CAMERA_INDEX:-}" ]]; then
+	Args+=(--camera-index "$FINGERSNAP_CAMERA_INDEX")
 fi
 
-mkdir -p "${HOME}/Library/LaunchAgents"
-
-Tmp="$(mktemp)"
-trap 'rm -f "${Tmp}"' EXIT
-cat > "${Tmp}" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>Label</key>
-	<string>${Label}</string>
-	<key>ProgramArguments</key>
-	<array>
-		<string>${PythonExe}</string>
-		<string>${Listener}</string>${SuperviseArg}${ExtraProgramArgs}
-	</array>
-	<key>WorkingDirectory</key>
-	<string>${Root}</string>
-	<key>RunAtLoad</key>
-	<true/>
-	<key>KeepAlive</key>
-	<true/>
-	<key>ThrottleInterval</key>
-	<integer>15</integer>
-	<key>StandardOutPath</key>
-	<string>/tmp/fingersnap.out.log</string>
-	<key>StandardErrorPath</key>
-	<string>/tmp/fingersnap.err.log</string>
-</dict>
-</plist>
-EOF
-
-cp "${Tmp}" "${PlistDest}"
-plutil -lint "${PlistDest}" >/dev/null
-
-Uid="$(id -u)"
-launchctl bootout "gui/${Uid}/${Label}" 2>/dev/null || true
-launchctl bootstrap "gui/${Uid}" "${PlistDest}"
-
-ModeNote=" (--supervise in plist for sleep/wake + camera indicator)"
-if [[ "${RequireHand}" == "1" ]]; then
-	ModeNote+=" (with --require-hand; FINGERSNAP_REQUIRE_HAND=0 for mic-only)"
-fi
-echo "Finger snap listener started (${Label})${ModeNote}. Logs: /tmp/fingersnap.out.log /tmp/fingersnap.err.log"
+nohup "$Python" "$Main" "${Args[@]}" "$@" >>"$LogFile" 2>&1 &
+echo $! >"$PidFile"
+echo "Started PID $(cat "$PidFile") in background."
+echo "Log: ${LogFile}"
+echo "Stop: ${Root}/start.sh stop   Status: ${Root}/start.sh status"
