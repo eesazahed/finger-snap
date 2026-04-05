@@ -31,8 +31,8 @@ echo "Installing requirements.txt (numpy, sounddevice) …"
 if [[ "${FINGERSNAP_SKIP_HAND_DEPS:-0}" == "1" ]]; then
 	echo "Skipping mediapipe / opencv (FINGERSNAP_SKIP_HAND_DEPS=1). Use FINGERSNAP_REQUIRE_HAND=0 ./start.sh for mic-only."
 else
-	echo "Installing mediapipe + opencv-python-headless + pyobjc-framework-Quartz (camera + optional F3 in main.py) …"
-	"${Pip}" install mediapipe opencv-python-headless pyobjc-framework-Quartz
+	echo "Installing mediapipe + opencv-python-headless (camera / hand-gesture in main.py) …"
+	"${Pip}" install mediapipe opencv-python-headless
 fi
 
 chmod +x "${Root}/start.sh" 2>/dev/null || true
