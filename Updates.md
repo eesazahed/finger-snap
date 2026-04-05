@@ -2,6 +2,7 @@
 
 ## 2026-04-04
 
+- **2026-04-04 — `start.sh`:** **`FINGERSNAP_HAND_GESTURE`** default **0** (**`--hand-gesture`** opt-in via **`=1`** or **`./start.sh --hand-gesture`**). **`README.md`**.
 - **2026-04-04 — `main.py`:** **`--hand-gesture`** = palm **swipe up / down** (easy thresholds); **`McBelievedOpen`** gates **⌃↑** for open vs close. **`README.md`**.
 - **2026-04-04 — `main.py`:** **`OpenVisualStudioCode`** on double snap (repo folder); **`ListenerConfig.VsCodeAppName`**; **`--no-vscode`**.
 - **2026-04-04 — single `start.sh`:** **`nohup`** + **`.finger-snap.pid`** + **`fingersnap.log`** / rotation; subcommands **`stop`**, **`status`**; **`hand-test`** / **`--help`** **`exec`**; **`bootout`** legacy **`com.eesa.fingersnap`**. Removed **`stop.sh`**, **`RunFingerSnapAgent.sh`**, **`launchd`** plist generation. **`README.md`**, **`.gitignore`**, **`install.sh`** updated.

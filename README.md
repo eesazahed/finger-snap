@@ -50,7 +50,7 @@ Default startup sound: **`assets/audio/startupsong.wav`**. Override with `--star
 
 **Snaps + visible hand:** install **`mediapipe`** and **`opencv-python-headless`** in the venv (same as the hand test below), allow **Camera**, then run with **`--require-hand`**. The listener still needs two valid snaps; when the post-second-snap window closes, MediaPipe must see at least one hand in frame (**presence** mode). If not, the gesture is discarded (stderr: *no hand visible*) and you can snap again. Use **`--camera-index N`** if the wrong device opens.
 
-**Palm swipe → Mission Control:** same camera thread — **`--hand-gesture`** uses **swipe up** / **swipe down** on palm height (sensitive defaults: **`--gesture-min-delta-y`**, **`--gesture-min-speed`**, **`--gesture-history-frames`**). **⌃↑** opens when the app assumes MC is off and closes when it assumes on (state follows your swipes; keyboard toggles can desync until you swipe once to match). Mic-only: omit **`--require-hand`** and **`--hand-gesture`**. **`./start.sh`** adds **`--hand-gesture`** by default unless **`FINGERSNAP_HAND_GESTURE=0`**.
+**Palm swipe → Mission Control:** same camera thread — **`--hand-gesture`** uses **swipe up** / **swipe down** on palm height (sensitive defaults: **`--gesture-min-delta-y`**, **`--gesture-min-speed`**, **`--gesture-history-frames`**). **⌃↑** opens when the app assumes MC is off and closes when it assumes on (state follows your swipes; keyboard toggles can desync until you swipe once to match). Mic-only: omit **`--require-hand`** and **`--hand-gesture`**. **`./start.sh`** does **not** pass **`--hand-gesture`** unless **`FINGERSNAP_HAND_GESTURE=1`** or **`./start.sh --hand-gesture`**.
 
 **Hand-in-frame test (webcam → stdout echo):** after the venv setup above, run `./.venv/bin/pip install mediapipe opencv-python-headless` (never plain `pip install` on Homebrew Python—it errors with **externally-managed-environment** / PEP 668). Default: **headless** (no camera window)—`./.venv/bin/python main.py hand-test` prints a timestamped line when a hand appears, re-arms when it leaves. **`--preview`** draws the feed with guide lines; **`--mode raised`** uses the upper-band wrist rule instead of any hand in frame.
 
@@ -68,11 +68,11 @@ One script replaces separate **`stop.sh`** / **`RunFingerSnapAgent.sh`** / **`la
 
 | Command | Action |
 |--------|--------|
-| **`./start.sh`** | **`launchctl bootout`** any old **`com.eesa.fingersnap`** job, kill PID in **`.finger-snap.pid`**, kill stray **`main.py`** for this repo, rotate **`fingersnap.log`** if over **`FINGERSNAP_LOG_MAX_MB`** (default 8), then **`nohup`** **`main.py --supervise`**, **`--require-hand`** (unless **`FINGERSNAP_REQUIRE_HAND=0`**), **`--hand-gesture`** (unless **`FINGERSNAP_HAND_GESTURE=0`**). |
+| **`./start.sh`** | **`launchctl bootout`** any old **`com.eesa.fingersnap`** job, kill PID in **`.finger-snap.pid`**, kill stray **`main.py`** for this repo, rotate **`fingersnap.log`** if over **`FINGERSNAP_LOG_MAX_MB`** (default 8), then **`nohup`** **`main.py --supervise`**, **`--require-hand`** (unless **`FINGERSNAP_REQUIRE_HAND=0`**), **`--hand-gesture`** only if **`FINGERSNAP_HAND_GESTURE=1`** or passed on the command line. |
 | **`./start.sh stop`** | Same shutdown (no new process). |
 | **`./start.sh status`** | Print PID and log path if the saved PID is alive. |
 
-Logs append to **`fingersnap.log`** in the repo (and **`fingersnap.log.1`** after rotation). **`FINGERSNAP_REQUIRE_HAND=0`**, **`FINGERSNAP_HAND_GESTURE=0`** (omit palm-swipe / Mission Control gesture), **`FINGERSNAP_CAMERA_INDEX`**, **`FINGERSNAP_RESTART_DELAY`** behave like before. Extra args go to **`main.py`**, e.g. **`./start.sh --no-chrome`**.
+Logs append to **`fingersnap.log`** in the repo (and **`fingersnap.log.1`** after rotation). **`FINGERSNAP_REQUIRE_HAND=0`**, **`FINGERSNAP_HAND_GESTURE=1`** (add palm-swipe / Mission Control), **`FINGERSNAP_CAMERA_INDEX`**, **`FINGERSNAP_RESTART_DELAY`** behave like before. Extra args go to **`main.py`**, e.g. **`./start.sh --no-chrome`** or **`./start.sh --hand-gesture`**.
 
 Foreground helpers: **`./start.sh --help`**, **`./start.sh hand-test --preview`**.
 
