@@ -68,11 +68,11 @@ One script replaces separate **`stop.sh`** / **`RunFingerSnapAgent.sh`** / **`la
 
 | Command | Action |
 |--------|--------|
-| **`./start.sh`** | **`launchctl bootout`** any old **`com.eesa.fingersnap`** job, kill PID in **`.finger-snap.pid`**, kill stray **`main.py`** for this repo, rotate **`fingersnap.log`** if over **`FINGERSNAP_LOG_MAX_MB`** (default 8), then **`nohup`** **`main.py --supervise`**, **`--require-hand`** (unless **`FINGERSNAP_REQUIRE_HAND=0`**), **`--hand-gesture`** only if **`FINGERSNAP_HAND_GESTURE=1`** or passed on the command line. |
+| **`./start.sh`** | **`launchctl bootout`** any old **`com.eesa.fingersnap`** job, kill PID in **`.finger-snap.pid`**, kill stray **`main.py`** for this repo, then **`nohup`** **`main.py --supervise`** (with **`FINGERSNAP_CAP_LOG`**) so **`fingersnap.log`** keeps at most **`FINGERSNAP_LOG_MAX_LINES`** (default **100**) lines—each new line drops the oldest. **`--require-hand`** unless **`FINGERSNAP_REQUIRE_HAND=0`**; **`--hand-gesture`** only if **`FINGERSNAP_HAND_GESTURE=1`** or passed on the command line. |
 | **`./start.sh stop`** | Same shutdown (no new process). |
 | **`./start.sh status`** | Print PID and log path if the saved PID is alive. |
 
-Logs append to **`fingersnap.log`** in the repo (and **`fingersnap.log.1`** after rotation). **`FINGERSNAP_REQUIRE_HAND=0`**, **`FINGERSNAP_HAND_GESTURE=1`** (add palm-swipe / Mission Control), **`FINGERSNAP_CAMERA_INDEX`**, **`FINGERSNAP_RESTART_DELAY`** behave like before. Extra args go to **`main.py`**, e.g. **`./start.sh --no-chrome`** or **`./start.sh --hand-gesture`**.
+Background logs go to **`fingersnap.log`** (ring buffer by line count). **`FINGERSNAP_REQUIRE_HAND=0`**, **`FINGERSNAP_HAND_GESTURE=1`** (add palm-swipe / Mission Control), **`FINGERSNAP_CAMERA_INDEX`**, **`FINGERSNAP_RESTART_DELAY`** behave like before. Extra args go to **`main.py`**, e.g. **`./start.sh --no-chrome`** or **`./start.sh --hand-gesture`**.
 
 Foreground helpers: **`./start.sh --help`**, **`./start.sh hand-test --preview`**.
 

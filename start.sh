@@ -11,7 +11,7 @@
 #
 # Env: FINGERSNAP_REQUIRE_HAND (default 1), FINGERSNAP_HAND_GESTURE (default 0; set 1 to add --hand-gesture),
 #      FINGERSNAP_CAMERA_INDEX, FINGERSNAP_RESTART_DELAY,
-#      FINGERSNAP_LOG_MAX_MB (default 8, rotate fingersnap.log → fingersnap.log.1)
+#      FINGERSNAP_LOG_MAX_LINES (default 100; main.py keeps only the newest lines in fingersnap.log)
 #
 set -euo pipefail
 
@@ -87,24 +87,10 @@ case "${1:-}" in
 		;;
 esac
 
-RotateLogIfLarge() {
-	local MaxMb="${FINGERSNAP_LOG_MAX_MB:-8}"
-	[[ "$MaxMb" =~ ^[0-9]+$ ]] && [[ "$MaxMb" -gt 0 ]] || return 0
-	[[ -f "$LogFile" ]] || return 0
-	local Bytes
-	Bytes="$(stat -f%z "$LogFile" 2>/dev/null || stat -c%s "$LogFile" 2>/dev/null || echo 0)"
-	local Limit=$((MaxMb * 1024 * 1024))
-	if ((Bytes > Limit)); then
-		mv -f "$LogFile" "${LogFile}.1"
-		echo "Rotated log (${Bytes} bytes > ${MaxMb} MiB) -> ${LogFile}.1" >&2
-	fi
-}
-
 StopLaunchd
 StopPidFile
 PkillRepoMain
 
-RotateLogIfLarge
 touch "$LogFile"
 
 Args=(--supervise)
@@ -118,7 +104,8 @@ if [[ -n "${FINGERSNAP_CAMERA_INDEX:-}" ]]; then
 	Args+=(--camera-index "$FINGERSNAP_CAMERA_INDEX")
 fi
 
-nohup "$Python" "$Main" "${Args[@]}" "$@" >>"$LogFile" 2>&1 &
+nohup env FINGERSNAP_CAP_LOG=1 FINGERSNAP_LOG_MAX_LINES="${FINGERSNAP_LOG_MAX_LINES:-100}" PYTHONUNBUFFERED=1 \
+	"$Python" -u "$Main" "${Args[@]}" "$@" >/dev/null 2>&1 &
 echo $! >"$PidFile"
 echo "Started PID $(cat "$PidFile") in background."
 echo "Log: ${LogFile}"

@@ -2,6 +2,7 @@
 
 ## 2026-04-04
 
+- **2026-04-04 — `main.py` / `start.sh`:** **`fingersnap.log`** capped at **`FINGERSNAP_LOG_MAX_LINES`** (default **100**): FIFO by line; **`MaybeInstallFingersnapPipeLog`** when **`FINGERSNAP_CAP_LOG=1`** (set by **`start.sh`**). Removed size-based **`FINGERSNAP_LOG_MAX_MB`** rotation. **`README.md`**.
 - **2026-04-04 — `start.sh`:** **`FINGERSNAP_HAND_GESTURE`** default **0** (**`--hand-gesture`** opt-in via **`=1`** or **`./start.sh --hand-gesture`**). **`README.md`**.
 - **2026-04-04 — `main.py`:** **`--hand-gesture`** = palm **swipe up / down** (easy thresholds); **`McBelievedOpen`** gates **⌃↑** for open vs close. **`README.md`**.
 - **2026-04-04 — `main.py`:** **`OpenVisualStudioCode`** on double snap (repo folder); **`ListenerConfig.VsCodeAppName`**; **`--no-vscode`**.

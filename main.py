@@ -27,7 +27,7 @@ import urllib.request
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Deque, Literal, Optional, Tuple
+from typing import Callable, Deque, Literal, Optional, Sequence, Tuple
 
 import numpy as np
 import sounddevice as sd
@@ -36,6 +36,103 @@ HandLandmarkerModelUrl = (
     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
     "hand_landmarker/float16/latest/hand_landmarker.task"
 )
+
+FingersnapLogFileName = "fingersnap.log"
+
+
+def FingersnapAtomicWriteLogLines(LogPath: Path, Lines: Sequence[str]) -> None:
+    Content = "\n".join(Lines)
+    if Content:
+        Content += "\n"
+    Tmp = LogPath.with_name(LogPath.name + ".tmp")
+    try:
+        Tmp.write_text(Content, encoding="utf-8", errors="replace")
+        os.replace(Tmp, LogPath)
+    except OSError:
+        try:
+            Tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def MaybeInstallFingersnapPipeLog() -> None:
+    """
+    When FINGERSNAP_CAP_LOG is truthy, capture stdout/stderr (fd 1 and 2) through a pipe
+    and keep at most FINGERSNAP_LOG_MAX_LINES (default 100) complete lines in LogPath (FIFO).
+    start.sh sets this for background supervise runs; hand-test and direct runs are unchanged.
+    """
+    Val = (os.environ.get("FINGERSNAP_CAP_LOG") or "").strip().lower()
+    if Val not in ("1", "true", "yes", "on"):
+        return
+    try:
+        Lim = int(os.environ.get("FINGERSNAP_LOG_MAX_LINES", "100"))
+    except ValueError:
+        Lim = 100
+    if Lim < 1:
+        Lim = 100
+    LogPath = Path(__file__).resolve().parent / FingersnapLogFileName
+    Lines: Deque[str] = deque(maxlen=Lim)
+    if LogPath.is_file():
+        try:
+            Text = LogPath.read_text(encoding="utf-8", errors="replace")
+            for L in Text.splitlines():
+                Lines.append(L)
+        except OSError:
+            pass
+    if Lines:
+        FingersnapAtomicWriteLogLines(LogPath, Lines)
+    ReadFd, WriteFd = os.pipe()
+    Lock = threading.Lock()
+
+    def RunReader() -> None:
+        Buf = b""
+        try:
+            while True:
+                Chunk = os.read(ReadFd, 65536)
+                if not Chunk:
+                    break
+                Buf += Chunk
+                while True:
+                    I = Buf.find(b"\n")
+                    if I < 0:
+                        break
+                    Line = Buf[:I].decode("utf-8", errors="replace")
+                    Buf = Buf[I + 1 :]
+                    with Lock:
+                        Lines.append(Line)
+                        FingersnapAtomicWriteLogLines(LogPath, Lines)
+            if Buf:
+                Line = Buf.decode("utf-8", errors="replace")
+                if Line:
+                    with Lock:
+                        Lines.append(Line)
+                        FingersnapAtomicWriteLogLines(LogPath, Lines)
+        finally:
+            try:
+                os.close(ReadFd)
+            except OSError:
+                pass
+
+    threading.Thread(target=RunReader, name="FingersnapLogReader", daemon=True).start()
+    try:
+        os.dup2(WriteFd, 1)
+        os.dup2(WriteFd, 2)
+    except OSError:
+        try:
+            os.close(ReadFd)
+        except OSError:
+            pass
+        try:
+            os.close(WriteFd)
+        except OSError:
+            pass
+        return
+    try:
+        os.close(WriteFd)
+    except OSError:
+        pass
+    sys.stdout = os.fdopen(1, "w", buffering=1, encoding="utf-8", errors="replace")
+    sys.stderr = os.fdopen(2, "w", buffering=1, encoding="utf-8", errors="replace")
 
 
 def EnsureHandLandmarkerModel(CacheDir: Path) -> Optional[Path]:
@@ -1041,6 +1138,7 @@ def MainHandTest() -> None:
 
 
 def Main() -> None:
+    MaybeInstallFingersnapPipeLog()
     Rest = sys.argv[1:]
     if Rest and Rest[0] == "hand-test":
         sys.argv = [sys.argv[0]] + Rest[1:]
